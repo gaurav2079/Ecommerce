@@ -1,30 +1,86 @@
 <?php
+// Security headers
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Pragma: no-cache");
+header("X-Frame-Options: DENY");
+header("X-Content-Type-Options: nosniff");
+header("Referrer-Policy: strict-origin-when-cross-origin");
+
+session_start();
 include 'components/connect.php';
 
-$email = $_GET['email'] ?? '';
-$message = [];
+// Initialize variables
+$email = '';
+$success = false;
+
+// Validate and sanitize email input
+if (isset($_GET['email'])) {
+    $email = filter_var($_GET['email'], FILTER_SANITIZE_EMAIL);
+} elseif (isset($_POST['email'])) {
+    $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
+}
+
+// Improved custom hash function with proper variable naming and security
+function custom_hash($password) {
+    $pepper = "N3p@l4598!";
+    $salted_password = $password . $pepper;
+    
+    $key = 0;
+    $p = 31;
+    $q = 7;
+    $m = 1000000007;
+    
+    // Calculate initial key
+    for ($i = 0; $i < strlen($salted_password); $i++) {
+        $key = ($key * 31 + ord($salted_password[$i])) % $m;
+    }
+    
+    // Apply multiple iterations
+    for ($i = 0; $i < 1000; $i++) {
+        $key = ($key * $p + $q) % $m;
+    }
+    
+    return strval($key);
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $new_password = $_POST['new_password'];
-    $confirm_password = $_POST['confirm_password'];
+    $new_password = $_POST['new_password'] ?? '';
+    $confirm_password = $_POST['confirm_password'] ?? '';
 
-    if ($new_password !== $confirm_password) {
-        $message[] = "Passwords do not match";
-    } elseif (strlen($new_password) < 6) {
-        $message[] = "Password must be at least 6 characters long";
+    // Validate inputs
+    if (empty($email)) {
+        // Error hidden as per requirements
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        // Error hidden as per requirements
+    } elseif (empty($new_password) || empty($confirm_password)) {
+        // Error hidden as per requirements
+    } elseif ($new_password !== $confirm_password) {
+        // Error hidden as per requirements
+    } elseif (strlen($new_password) < 8) {  // Increased minimum length to 8
+        // Error hidden as per requirements
     } else {
-        // Hash the password for security
-        $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-
-        // Update password in the database
-        $stmt = $conn->prepare("UPDATE users SET password = ?, otp = NULL, otp_expiry = NULL WHERE email = ?");
-        $stmt->execute([$hashed_password, $email]);
-
-        $message[] = "Password updated successfully! Redirecting to login page...";
-        $success = true;
-        
-        // Redirect to login page after 3 seconds
-        header("refresh:3;url=user_login.php");
+        try {
+            // Verify user exists first using prepared statement
+            $check_user = $conn->prepare("SELECT id FROM users WHERE email = ?");
+            $check_user->execute([$email]);
+            
+            if ($check_user->rowCount() > 0) {
+                // Hash the new password using custom hash function
+                $hashed_password = custom_hash($new_password);
+                
+                // Update only the password field
+                $stmt = $conn->prepare("UPDATE users SET password = ? WHERE email = ?");
+                $stmt->execute([$hashed_password, $email]);
+                
+                // Verify the update was successful
+                if ($stmt->rowCount() > 0) {
+                    $success = true;
+                    header("refresh:3;url=user_login.php");
+                }
+            }
+        } catch (PDOException $e) {
+            error_log("Password reset error: " . $e->getMessage());
+        }
     }
 }
 ?>
@@ -34,7 +90,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reset Password - GKStore</title>
+    <meta name="description" content="Reset your password for GKStore account">
+    <title>Reset Password - NS</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -152,18 +209,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background-color: rgba(76, 201, 240, 0.2);
             color: #0a9396;
             border-left: 4px solid var(--success);
-        }
-
-        .alert-danger {
-            background-color: rgba(247, 37, 133, 0.1);
-            color: var(--danger);
-            border-left: 4px solid var(--danger);
-        }
-
-        .alert-warning {
-            background-color: rgba(248, 150, 30, 0.1);
-            color: var(--warning);
-            border-left: 4px solid var(--warning);
         }
 
         .redirect-message {
@@ -316,31 +361,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <h2>Create New Password</h2>
         <p class="subtitle">Secure your account with a strong password</p>
         
-        <?php if (!empty($message)): ?>
-            <div class="alert <?php 
-                if (isset($success)) echo 'alert-success';
-                elseif (strpos($message[0], 'match') !== false) echo 'alert-danger';
-                else echo 'alert-warning';
-            ?>">
-                <i class="fas <?php 
-                    if (isset($success)) echo 'fa-check-circle';
-                    elseif (strpos($message[0], 'match') !== false) echo 'fa-times-circle';
-                    else echo 'fa-exclamation-triangle';
-                ?>"></i>
-                <?php echo $message[0]; ?>
+        <?php if ($success): ?>
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i> Password updated successfully! Redirecting to login page...
             </div>
             
-            <?php if (isset($success)): ?>
-                <p class="redirect-message">
-                    <i class="fas fa-spinner fa-spin"></i> You will be redirected to login page shortly...
-                </p>
-            <?php endif; ?>
+            <p class="redirect-message">
+                <i class="fas fa-spinner fa-spin"></i> You will be redirected to login page shortly...
+            </p>
         <?php endif; ?>
         
-        <?php if (!isset($success)): ?>
-        <form method="POST" id="passwordForm">
+        <?php if (!$success): ?>
+        <form method="POST" id="passwordForm" autocomplete="off">
+            <input type="hidden" name="email" value="<?php echo htmlspecialchars($email); ?>">
+            
             <div class="password-container">
-                <input type="password" name="new_password" id="newPassword" placeholder="New Password" required class="password-input" minlength="6" oninput="checkPasswordStrength(this.value)">
+                <input type="password" name="new_password" id="newPassword" placeholder="New Password" required class="password-input" minlength="8" oninput="checkPasswordStrength(this.value)" autocomplete="new-password">
                 <span class="password-toggle" onclick="togglePassword('newPassword')">
                     <i class="fas fa-eye"></i>
                 </span>
@@ -351,7 +387,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             <div class="password-hints">
                 <ul>
-                    <li id="lengthHint">At least 6 characters</li>
+                    <li id="lengthHint">At least 8 characters</li>
                     <li id="caseHint">Both uppercase and lowercase</li>
                     <li id="numberHint">At least one number</li>
                     <li id="specialHint">At least one special character</li>
@@ -359,7 +395,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             
             <div class="password-container">
-                <input type="password" name="confirm_password" id="confirmPassword" placeholder="Confirm Password" required class="password-input" minlength="6">
+                <input type="password" name="confirm_password" id="confirmPassword" placeholder="Confirm Password" required class="password-input" minlength="8" autocomplete="new-password">
                 <span class="password-toggle" onclick="togglePassword('confirmPassword')">
                     <i class="fas fa-eye"></i>
                 </span>
@@ -398,13 +434,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Check length
             const lengthHint = document.getElementById('lengthHint');
-            if (password.length >= 6) {
+            if (password.length >= 8) {
                 strength += 1;
                 lengthHint.classList.add('valid');
             } else {
                 lengthHint.classList.remove('valid');
             }
-            if (password.length >= 8) strength += 1;
+            if (password.length >= 12) strength += 1;
             
             // Check for mixed case
             const caseHint = document.getElementById('caseHint');

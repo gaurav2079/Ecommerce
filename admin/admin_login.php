@@ -1,26 +1,55 @@
 <?php
+// Include database connection component
 include '../components/connect.php';
 
 session_start();
 
+// Admin class to handle authentication
+class AdminAuth {
+    private $conn;
+    private $name;
+    private $pass;
+    private $message = array();
+
+    public function __construct($conn) {
+        $this->conn = $conn;
+    }
+
+    public function sanitizeInput($input) {
+        return filter_var($input, FILTER_SANITIZE_STRING);
+    }
+
+    public function setCredentials($name, $pass) {
+        $this->name = $this->sanitizeInput($name);
+        $this->pass = sha1($this->sanitizeInput($pass));
+    }
+
+    public function authenticate() {
+        $select_admin = $this->conn->prepare("SELECT * FROM `admins` WHERE name = ? AND password = ?");
+        $select_admin->execute([$this->name, $this->pass]);
+        
+        if($select_admin->rowCount() > 0){
+            $row = $select_admin->fetch(PDO::FETCH_ASSOC);
+            $_SESSION['admin_id'] = $row['id'];
+            header('location:dashboard.php');
+            exit();
+        } else {
+            $this->message[] = 'incorrect username or password!';
+            return false;
+        }
+    }
+
+    public function getMessages() {
+        return $this->message;
+    }
+}
+
+// Process form submission
 if(isset($_POST['submit'])){
-
-   $name = $_POST['name'];
-   $name = filter_var($name, FILTER_SANITIZE_STRING);
-   $pass = sha1($_POST['pass']);
-   $pass = filter_var($pass, FILTER_SANITIZE_STRING);
-
-   $select_admin = $conn->prepare("SELECT * FROM `admins` WHERE name = ? AND password = ?");
-   $select_admin->execute([$name, $pass]);
-   $row = $select_admin->fetch(PDO::FETCH_ASSOC);
-
-   if($select_admin->rowCount() > 0){
-      $_SESSION['admin_id'] = $row['id'];
-      header('location:dashboard.php');
-   }else{
-      $message[] = 'incorrect username or password!';
-   }
-
+    $adminAuth = new AdminAuth($conn);
+    $adminAuth->setCredentials($_POST['name'], $_POST['pass']);
+    $adminAuth->authenticate();
+    $messages = $adminAuth->getMessages();
 }
 
 ?>
@@ -172,8 +201,8 @@ if(isset($_POST['submit'])){
 <body>
 
 <?php
-   if(isset($message)){
-      foreach($message as $message){
+   if(isset($messages)){
+      foreach($messages as $message){
          echo '
          <div class="message">
             <span>'.$message.'</span>

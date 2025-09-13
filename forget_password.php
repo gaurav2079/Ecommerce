@@ -4,34 +4,92 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-// Include Composer autoload (make sure you have run `composer require phpmailer/phpmailer`)
+// Include Composer autoload
 require 'vendor/autoload.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-include 'components/connect.php';
+// Database connection class
+class Database {
+    private $host = 'localhost';
+    private $user = 'root';
+    private $pass = '';
+    private $dbname = 'ns';
+    public $conn;
+    
+    public function __construct() {
+        try {
+            $this->conn = new PDO("mysql:host={$this->host};dbname={$this->dbname}", $this->user, $this->pass);
+            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        } catch(PDOException $e) {
+            die("Connection failed: " . $e->getMessage());
+        }
+    }
+}
 
-$message = [];
+// OTP Generator class
+class OTPGenerator {
+    public static function generate($length = 6) {
+        $otp = '';
+        $characters = '0123456789';
+        $max = strlen($characters) - 1;
+        
+        for ($i = 0; $i < $length; $i++) {
+            $otp .= $characters[random_int(0, $max)];
+        }
+        
+        return $otp;
+    }
+}
 
-if (isset($_POST['submit'])) {
-    $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
-
-    // Check if email exists in the database
-    $check_email = $conn->prepare("SELECT * FROM `users` WHERE email = ?");
-    $check_email->execute([$email]);
-
-    if ($check_email->rowCount() > 0) {
-        $otp = rand(100000, 999999);
-        $expiry_time = time() + 30; // 30 sec
-
-        // Store OTP and expiry in DB
-        $update_otp = $conn->prepare("UPDATE `users` SET otp = ?, otp_expiry = ? WHERE email = ?");
-        $update_otp->execute([$otp, $expiry_time, $email]);
-
-        // Send Email via PHPMailer
+// Password Reset Handler class
+class PasswordReset {
+    private $db;
+    private $email;
+    private $message = [];
+    
+    public function __construct($db, $email) {
+        $this->db = $db;
+        $this->email = filter_var($email, FILTER_SANITIZE_EMAIL);
+    }
+    
+    public function processRequest() {
+        if ($this->emailExists()) {
+            $otp = OTPGenerator::generate();
+            $expiry_time = time() + 30; // 30 seconds expiry
+            
+            if ($this->storeOTP($otp, $expiry_time)) {
+                if ($this->sendEmail($otp)) {
+                    header("Location: verify_otp.php?email=" . urlencode($this->email));
+                    exit();
+                } else {
+                    $this->message[] = "❌ Error sending email. Please try again later.";
+                }
+            } else {
+                $this->message[] = "❌ Error generating OTP. Please try again.";
+            }
+        } else {
+            $this->message[] = "❌ Email not found in our system.";
+        }
+        
+        return $this->message;
+    }
+    
+    private function emailExists() {
+        $check_email = $this->db->conn->prepare("SELECT * FROM `users` WHERE email = ?");
+        $check_email->execute([$this->email]);
+        return $check_email->rowCount() > 0;
+    }
+    
+    private function storeOTP($otp, $expiry_time) {
+        $update_otp = $this->db->conn->prepare("UPDATE `users` SET otp = ?, otp_expiry = ? WHERE email = ?");
+        return $update_otp->execute([$otp, $expiry_time, $this->email]);
+    }
+    
+    private function sendEmail($otp) {
         $mail = new PHPMailer(true);
-
+        
         try {
             // SMTP config
             $mail->isSMTP();
@@ -44,22 +102,28 @@ if (isset($_POST['submit'])) {
 
             // Sender & recipient
             $mail->setFrom('Nepal~Store@gmail.com', 'Nepal~Store Support');
-            $mail->addAddress($email);
+            $mail->addAddress($this->email);
 
             // Email content
             $mail->isHTML(true);
             $mail->Subject = 'Password Reset OTP';
             $mail->Body    = "Hello,<br><br>Your OTP for password reset is: <strong>$otp</strong><br><br>This OTP will expire in 30 sec.<br><br>Regards,<br>Nepal~Store Team";
 
-            $mail->send();
-            header("Location: verify_otp.php?email=" . urlencode($email));
-            exit();
+            return $mail->send();
         } catch (Exception $e) {
-            $message[] = "❌ Mailer Error: " . $mail->ErrorInfo;
+            $this->message[] = "❌ Mailer Error: " . $mail->ErrorInfo;
+            return false;
         }
-    } else {
-        $message[] = "❌ Email not found in our system.";
     }
+}
+
+// Main execution
+$message = [];
+
+if (isset($_POST['submit'])) {
+    $db = new Database();
+    $passwordReset = new PasswordReset($db, $_POST['email']);
+    $message = $passwordReset->processRequest();
 }
 ?>
 
@@ -68,7 +132,7 @@ if (isset($_POST['submit'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Forgot Password -Nepal~Store</title>
+    <title>Forgot Password - Nepal~Store</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -259,7 +323,6 @@ if (isset($_POST['submit'])) {
 </head>
 <body>
     <div class="container">
-      
         <div class="logo">
             <img src="images/logo.jpg" alt="NepalStore Logo">
         </div>

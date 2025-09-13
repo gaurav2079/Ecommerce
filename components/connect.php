@@ -1,9 +1,36 @@
 <?php
+// Check if the class is already defined
+if (!class_exists('DatabaseConnection')) {
+    class DatabaseConnection {
+        private $host = 'localhost';
+        private $dbname = 'ns';
+        private $username = 'root';
+        private $password = '';
+        private $conn;
+        
+        public function __construct() {
+            try {
+                $this->conn = new PDO(
+                    "mysql:host={$this->host};dbname={$this->dbname}", 
+                    $this->username, 
+                    $this->password
+                );
+                $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                $this->conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+            } catch(PDOException $e) {
+                die("Connection failed: " . $e->getMessage());
+            }
+        }
+        
+        public function getConnection() {
+            return $this->conn;
+        }
+    }
+}
 
-$db_name = 'mysql:host=localhost;dbname=shop_db';
-$user_name = 'root';
-$user_password = '';
-
-$conn = new PDO($db_name, $user_name, $user_password);
-
+// Create a single instance
+if (!isset($conn)) {
+    $db = new DatabaseConnection();
+    $conn = $db->getConnection();
+}
 ?>

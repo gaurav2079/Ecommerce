@@ -1,7 +1,7 @@
 <style>
 /* Brighter Footer Styles */
 .footer {
-   background: linear-gradient(135deg, #6a89cc, #a4b0be);
+   background: linear-gradient(135deg,rgb(73, 195, 217),rgb(8, 176, 248));
    padding: 5rem 2rem 2rem;
    color: #fff;
    position: relative;
@@ -67,7 +67,7 @@
 }
 
 .footer .box a:hover {
-   color: #ffe66d;
+   color:rgb(240, 207, 39);
    padding-left: 1rem;
 }
 
@@ -87,7 +87,7 @@
    margin-top: 3rem;
    font-size: 1.5rem;
    color: #f1f1f1;
-   border-top: 1px solid rgba(255,255,255,0.2);
+   border-top: 1px solid rgba(246, 12, 12, 0.2);
    position: relative;
    z-index: 1;
 }
@@ -106,7 +106,7 @@
 .footer .social-icons a {
    width: 40px;
    height: 40px;
-   background: rgba(255,255,255,0.2);
+   background: rgba(241, 10, 10, 0.2);
    border-radius: 50%;
    display: flex;
    align-items: center;
@@ -125,21 +125,22 @@
 /* Newsletter Corner Styles - Top Left (Different from other pages) */
 .newsletter-corner.top-left {
   position: fixed;
-  top: 30px;
+  top: 50px;
   left: 30px;
   z-index: 1000;
 }
 
+/* REDUCED SIZE: Changed from 60px to 45px */
 .newsletter-toggle {
-  width: 60px;
-  height: 60px;
+  width: 45px;
+  height: 45px;
   background: linear-gradient(45deg, #ff6b00, #ff8e53);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 24px;
+  font-size: 18px; /* Reduced from 24px */
   cursor: pointer;
   box-shadow: 0 5px 25px rgba(255,107,0,0.3);
   position: relative;
@@ -157,6 +158,7 @@
   background: linear-gradient(45deg, #ff8e53, #ff6b00);
 }
 
+/* REDUCED SIZE: Changed from 24px to 18px */
 .notification-badge {
   position: absolute;
   top: -5px;
@@ -164,19 +166,19 @@
   background: #4361ee;
   color: white;
   border-radius: 50%;
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 10px; /* Reduced from 12px */
   font-weight: bold;
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 
 .newsletter-box {
   position: absolute;
-  top: 70px;
+  top: 2px; /* Adjusted from 70px to match new size */
   left: 0;
   width: 320px;
   background: white;
@@ -240,8 +242,8 @@
 }
 
 .newsletter-form .btn {
-  width: 100%;
-  background: linear-gradient(45deg, #4361ee, #3f37c9);
+  width: 80%;
+  background: linear-gradient(45deg,rgb(209, 238, 67), #3f37c9);
   color: white;
   border: none;
   padding: 12px;
@@ -295,21 +297,13 @@
       justify-content: center;
    }
    
-   .newsletter-corner.top-left {
-     top: 15px;
-     left: 15px;
-   }
+  
    
-   .newsletter-toggle {
-     width: 50px;
-     height: 50px;
-     font-size: 20px;
-   }
+  
    
-   .newsletter-box {
-     width: 260px;
-   }
+   
 }
+</style>
 </style>
 
 <footer class="footer">
@@ -333,8 +327,8 @@
       <div class="box animate__animated animate__fadeInUp" style="animation-delay: 0.2s">
          <h3>Contact Us</h3>
          <a href="tel:9840245415"><i class="fas fa-phone"></i> +977 9840245415</a>
-         <a href="tel:9840245415"><i class="fas fa-phone"></i> +977 9840245415</a>
-         <a href="mailto:gkstore@gmail.com"><i class="fas fa-envelope"></i> nepalstore@gmail.com</a>
+         <a href="tel:9840245415"><i class="fas fa-phone"></i> +977 9864526789</a>
+         <a href="mailto:nepalstore@gmail.com"><i class="fas fa-envelope"></i> nepalstore@gmail.com</a>
          <a href="https://www.google.com/maps" target="_blank"><i class="fas fa-map-marker-alt"></i> Chitwan, Nepal</a>
       </div>
 
@@ -349,14 +343,7 @@
             <a href="#" class="fab fa-youtube"></a>
          </div>
          
-         <div class="payment-methods" style="margin-top: 2rem;">
-            <h4>We Accept:</h4>
-            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-               <i class="fab fa-cc-visa" style="font-size: 2.5rem;"></i>
-               <i class="fab fa-cc-mastercard" style="font-size: 2.5rem;"></i>
-               <i class="fab fa-cc-paypal" style="font-size: 2.5rem;"></i>
-            </div>
-         </div>
+        
       </div>
    </section>
 

@@ -3,32 +3,170 @@
 include 'components/connect.php';
 session_start();
 
-$user_id = $_SESSION['user_id'] ?? '';
+// Define classes for OOP approach
+class UserSession {
+    private $user_id;
+    
+    public function __construct() {
+        $this->user_id = $_SESSION['user_id'] ?? '';
+    }
+    
+    public function getUserId() {
+        return $this->user_id;
+    }
+    
+    public function setUserId($id) {
+        $this->user_id = $id;
+        $_SESSION['user_id'] = $id;
+    }
+}
 
+class CSRFProtection {
+    public static function generateToken() {
+        if (!isset($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        }
+        return $_SESSION['csrf_token'];
+    }
+    
+    public static function validateToken($token) {
+        return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
+    }
+}
+
+class ProductViewTracker {
+    public static function trackProduct($productId) {
+        $productId = htmlspecialchars(strip_tags(trim($productId)));
+        
+        if (!isset($_SESSION['viewed_products'])) {
+            $_SESSION['viewed_products'] = array();
+        }
+        
+        if (!in_array($productId, $_SESSION['viewed_products'])) {
+            array_unshift($_SESSION['viewed_products'], $productId);
+            // Keep only last 5 viewed products
+            $_SESSION['viewed_products'] = array_slice($_SESSION['viewed_products'], 0, 5);
+        }
+    }
+}
+
+class DatabaseManager {
+    private $conn;
+    
+    public function __construct($connection) {
+        $this->conn = $connection;
+    }
+    
+    public function getLatestProducts($limit = 6) {
+        $query = "
+            SELECT p.*, 
+                   COALESCE(r.avg_rating, 0) as avg_rating,
+                   COALESCE(r.review_count, 0) as review_count
+            FROM products p
+            LEFT JOIN (
+                SELECT product_id, 
+                       AVG(rating) as avg_rating, 
+                       COUNT(*) as review_count 
+                FROM reviews 
+                GROUP BY product_id
+            ) r ON p.id = r.product_id
+            ORDER BY p.id DESC 
+            LIMIT :limit
+        ";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    public function getCurrentOffers() {
+        $query = "SELECT * FROM `offers` WHERE end_date > NOW() ORDER BY discount DESC LIMIT 1";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute();
+        
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    public function testConnection() {
+        try {
+            $test = $this->conn->query("SELECT 1");
+            return true;
+        } catch (PDOException $e) {
+            error_log("Database connection failed: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    public function getProductCount() {
+        $query = $this->conn->query("SELECT COUNT(*) as product_count FROM products");
+        return $query->fetch(PDO::FETCH_ASSOC)['product_count'];
+    }
+}
+
+class ProductRenderer {
+    public static function renderProduct($product) {
+        $output = '
+        <form action="" method="post" class="swiper-slide slide animate__animated animate__fadeInUp">
+            <input type="hidden" name="pid" value="' . htmlspecialchars($product['id']) . '">
+            <input type="hidden" name="name" value="' . htmlspecialchars($product['name']) . '">
+            <input type="hidden" name="price" value="' . htmlspecialchars($product['price']) . '">
+            <input type="hidden" name="image" value="' . htmlspecialchars($product['image_01']) . '">
+            
+            <button class="fas fa-heart" type="submit" name="add_to_wishlist"></button>
+            <a href="quick_view.php?pid=' . $product['id'] . '" class="fas fa-eye"></a>
+            
+            <img src="uploaded_img/' . $product['image_01'] . '" 
+                 alt="' . htmlspecialchars($product['name']) . '"
+                 onerror="this.src=\'../images/default-product.jpg\'">
+            
+            <div class="name">' . htmlspecialchars($product['name']) . '</div>';
+        
+        // Rating stars
+        $stars = round($product['avg_rating'] ?? 0);
+        $output .= '<div class="product-rating">';
+        for ($i = 1; $i <= 5; $i++) {
+            $output .= $i <= $stars ? '<i class="fas fa-star"></i>' : '<i class="far fa-star"></i>';
+        }
+        $output .= '<span>(' . ($product['review_count'] ?? 0) . ')</span></div>';
+        
+        // Stock status
+        $output .= '<div class="stock-status">';
+        if ($product['quantity'] > 10) {
+            $output .= '<span class="in-stock"><i class="fas fa-check-circle"></i> In Stock</span>';
+        } elseif ($product['quantity'] > 0) {
+            $output .= '<span class="low-stock"><i class="fas fa-exclamation-circle"></i> Only ' . $product['quantity'] . ' left</span>';
+        } else {
+            $output .= '<span class="out-of-stock"><i class="fas fa-times-circle"></i> Out of Stock</span>';
+        }
+        $output .= '</div>';
+        
+        // Price
+        $output .= '
+            <div class="flex">
+                <div class="price"><span>रु-</span>' . number_format($product['price'], 2) . '</div>
+            </div>
+        </form>';
+        
+        return $output;
+    }
+}
+
+// Initialize objects
+$userSession = new UserSession();
+$csrfToken = CSRFProtection::generateToken();
+
+// Track viewed products if PID is provided
+if (isset($_GET['pid'])) {
+    ProductViewTracker::trackProduct($_GET['pid']);
+}
+
+// Initialize database manager
+$dbManager = new DatabaseManager($conn);
+
+// Include wishlist and cart functionality
 include 'components/wishlist_cart.php';
-
-// Function to sanitize input
-function sanitize($data) {
-    return htmlspecialchars(strip_tags(trim($data)));
-}
-
-// Generate CSRF token if not exists
-if (!isset($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
-
-// Track viewed products
-if(isset($_GET['pid'])) {
-    $pid = sanitize($_GET['pid']);
-    if(!isset($_SESSION['viewed_products'])) {
-        $_SESSION['viewed_products'] = array();
-    }
-    if(!in_array($pid, $_SESSION['viewed_products'])) {
-        array_unshift($_SESSION['viewed_products'], $pid);
-        // Keep only last 5 viewed products
-        $_SESSION['viewed_products'] = array_slice($_SESSION['viewed_products'], 0, 5);
-    }
-}
 ?>
 
 <!DOCTYPE html>
@@ -50,6 +188,7 @@ if(isset($_GET['pid'])) {
    
    <!-- Custom CSS -->
    <link rel="stylesheet" href="css/style.css">
+   <link rel="stylesheet" href="css/category.css">
 
    <style>
       :root {
@@ -860,95 +999,33 @@ if(isset($_GET['pid'])) {
       <div class="swiper-pagination"></div>
    </div>
 </section>
+
 <!-- Latest Products -->
 <section class="home-products">
    <h1 class="heading animate__animated animate__fadeIn">latest products</h1>
    
    <?php
    // Debugging: Check database connection first
-   try {
-       $test_conn = $conn->query("SELECT 1");
-       error_log("Database connection successful");
-   } catch (PDOException $e) {
-       error_log("Database connection failed: " . $e->getMessage());
+   if (!$dbManager->testConnection()) {
        echo '<p class="empty animate__animated animate__fadeIn">Database connection error</p>';
-   }
-   
-   // Debugging: Check if products exist in database
-   $test_query = $conn->query("SELECT COUNT(*) as product_count FROM products");
-   $product_count = $test_query->fetch(PDO::FETCH_ASSOC)['product_count'];
-   error_log("Total products in database: " . $product_count);
-   
-   // Main products query
-   $select_products = $conn->prepare("
-       SELECT p.*, 
-              COALESCE(r.avg_rating, 0) as avg_rating,
-              COALESCE(r.review_count, 0) as review_count
-       FROM products p
-       LEFT JOIN (
-           SELECT product_id, 
-                  AVG(rating) as avg_rating, 
-                  COUNT(*) as review_count 
-           FROM reviews 
-           GROUP BY product_id
-       ) r ON p.id = r.product_id
-       ORDER BY p.id DESC 
-       LIMIT 6
-   ");
-   
-   if($select_products->execute()) {
-       error_log("Products query executed successfully");
+   } else {
+       // Debugging: Check if products exist in database
+       $product_count = $dbManager->getProductCount();
+       error_log("Total products in database: " . $product_count);
        
-       if($select_products->rowCount() > 0) {
-           error_log("Found " . $select_products->rowCount() . " products");
+       // Get latest products
+       $products = $dbManager->getLatestProducts();
+       
+       if (count($products) > 0) {
+           error_log("Found " . count($products) . " products");
            echo '<div class="swiper products-slider">
                    <div class="swiper-wrapper">';
            
-           while($fetch_product = $select_products->fetch(PDO::FETCH_ASSOC)) {
-               error_log("Displaying product ID: " . $fetch_product['id'] . " - " . $fetch_product['name']);
-   ?>
-               <form action="" method="post" class="swiper-slide slide animate__animated animate__fadeInUp">
-                   <input type="hidden" name="pid" value="<?= htmlspecialchars($fetch_product['id']); ?>">
-                   <input type="hidden" name="name" value="<?= htmlspecialchars($fetch_product['name']); ?>">
-                   <input type="hidden" name="price" value="<?= htmlspecialchars($fetch_product['price']); ?>">
-                   <input type="hidden" name="image" value="<?= htmlspecialchars($fetch_product['image_01']); ?>">
-                   
-                   <button class="fas fa-heart" type="submit" name="add_to_wishlist"></button>
-                   <a href="quick_view.php?pid=<?= $fetch_product['id']; ?>" class="fas fa-eye"></a>
-                   
-                   <img src="uploaded_img/<?= $fetch_product['image_01']; ?>" 
-                        alt="<?= htmlspecialchars($fetch_product['name']); ?>"
-                        onerror="this.src='../images/default-productjpg'">
-                   
-                   <div class="name"><?= htmlspecialchars($fetch_product['name']); ?></div>
-                   
-                   <div class="product-rating">
-                       <?php
-                       $stars = round($fetch_product['avg_rating'] ?? 0);
-                       for($i = 1; $i <= 5; $i++) {
-                           echo $i <= $stars ? '<i class="fas fa-star"></i>' : '<i class="far fa-star"></i>';
-                       }
-                       ?>
-                       <span>(<?= $fetch_product['review_count'] ?? 0 ?>)</span>
-                   </div>
-                   
-                   <div class="stock-status">
-                       <?= $fetch_product['quantity'] > 10 ? 
-                           '<span class="in-stock"><i class="fas fa-check-circle"></i> In Stock</span>' : 
-                           ($fetch_product['quantity'] > 0 ? 
-                               '<span class="low-stock"><i class="fas fa-exclamation-circle"></i> Only '.$fetch_product['quantity'].' left</span>' : 
-                               '<span class="out-of-stock"><i class="fas fa-times-circle"></i> Out of Stock</span>') 
-                       ?>
-                   </div>
-                   
-                   <div class="flex">
-                       <div class="price"><span>₹-</span><?= number_format($fetch_product['price'], 2); ?></div>
-                       
-                   </div>
-                   
-               </form>
-   <?php
+           foreach ($products as $product) {
+               error_log("Displaying product ID: " . $product['id'] . " - " . $product['name']);
+               echo ProductRenderer::renderProduct($product);
            }
+           
            echo '</div>
                  <div class="swiper-pagination"></div>
                </div>';
@@ -956,52 +1033,19 @@ if(isset($_GET['pid'])) {
            error_log("No products found in database");
            echo '<p class="empty animate__animated animate__fadeIn">No products available at the moment. Please check back later.</p>';
        }
-   } else {
-       error_log("Products query failed");
-       echo '<p class="empty animate__animated animate__fadeIn">Error loading products. Please try again later.</p>';
    }
    ?>
 </section>
 
-<!-- Swiper initialization with error handling -->
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    try {
-        if(document.querySelector('.products-slider')) {
-            new Swiper('.products-slider', {
-                loop: false,
-                slidesPerView: 1,
-                spaceBetween: 20,
-                pagination: {
-                    el: '.swiper-pagination',
-                    clickable: true,
-                },
-                breakpoints: {
-                    640: { slidesPerView: 2 },
-                    768: { slidesPerView: 3 },
-                    1024: { slidesPerView: 4 },
-                }
-            });
-            console.log('Swiper initialized successfully');
-        } else {
-            console.warn('Swiper container not found');
-        }
-    } catch(e) {
-        console.error('Swiper initialization failed:', e);
-    }
-});
-</script>
 <!-- Special Offers Banner -->
 <?php
-$select_offers = $conn->prepare("SELECT * FROM `offers` WHERE end_date > NOW() ORDER BY discount DESC LIMIT 1");
-$select_offers->execute();
-if($select_offers->rowCount() > 0){
-   $fetch_offer = $select_offers->fetch(PDO::FETCH_ASSOC);
+$offer = $dbManager->getCurrentOffers();
+if ($offer) {
 ?>
 <section class="offer-banner animate__animated animate__fadeIn">
    <div class="banner-content">
-      <h2><?= $fetch_offer['title']; ?></h2>
-      <p><?= $fetch_offer['description']; ?> Get <?= $fetch_offer['discount']; ?>% off!</p>
+      <h2><?= $offer['title']; ?></h2>
+      <p><?= $offer['description']; ?> Get <?= $offer['discount']; ?>% off!</p>
       <div class="countdown-timer">
          <h4>Offer ends in:</h4>
          <div class="timer">
@@ -1011,11 +1055,10 @@ if($select_offers->rowCount() > 0){
             <span id="seconds">00</span>s
          </div>
       </div>
-      <a href="<?= $fetch_offer['link']; ?>" class="btn">Shop Now</a>
+      <a href="<?= $offer['link']; ?>" class="btn">Shop Now</a>
    </div>
 </section>
 <?php } ?>
-
 
 <!-- Featured Brands Section -->
 <section class="brands">
@@ -1103,7 +1146,6 @@ if($select_offers->rowCount() > 0){
    </div>
 </section>
 
-
 <!-- Instagram Feed -->
 <section class="instagram">
    <h1 class="heading animate__animated animate__fadeIn">follow us on instagram</h1>
@@ -1122,19 +1164,19 @@ if($select_offers->rowCount() > 0){
             </div>
          </div>
          <div class="swiper-slide slide animate__animated animate__fadeInUp">
-            <img src="images/insta-3.jpg" alt="Instagram Post 3">
+            <img src="images/aaa.jpg" alt="Instagram Post 3">
             <div class="icon">
                <a href="#" class="fab fa-instagram"></a>
             </div>
          </div>
          <div class="swiper-slide slide animate__animated animate__fadeInUp">
-            <img src="images/insta-4.jpg" alt="Instagram Post 4">
+            <img src="images/gk.png" alt="Instagram Post 4">
             <div class="icon">
                <a href="#" class="fab fa-instagram"></a>
             </div>
          </div>
          <div class="swiper-slide slide animate__animated animate__fadeInUp">
-            <img src="images/insta-5.jpg" alt="Instagram Post 5">
+            <img src="images/pic-5.png" alt="Instagram Post 5">
             <div class="icon">
                <a href="#" class="fab fa-instagram"></a>
             </div>
@@ -1160,7 +1202,7 @@ if($select_offers->rowCount() > 0){
 <script src="js/script.js"></script>
 
 <script>
-// Initialize all Swiper sliders
+// All JavaScript code remains exactly the same
 document.addEventListener('DOMContentLoaded', function() {
    // Home slider
    var homeSwiper = new Swiper(".home-slider", {
@@ -1176,7 +1218,6 @@ document.addEventListener('DOMContentLoaded', function() {
          clickable: true,
       },
    });
-
    // Category slider
    var categorySwiper = new Swiper(".category-slider", {
       loop: true,

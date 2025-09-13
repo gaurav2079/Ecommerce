@@ -10,32 +10,7 @@ if(isset($_SESSION['user_id'])){
 
 include 'components/wishlist_cart.php';
 
-// 1. INPUT SANITIZATION
-$category = filter_input(INPUT_GET, 'category', FILTER_SANITIZE_STRING);
 
-// 2. CACHE SYSTEM INITIALIZATION
-$cacheDir = __DIR__ . '/cache/';
-if (!file_exists($cacheDir)) {
-    mkdir($cacheDir, 0755, true);
-}
-
-// 3. CACHE KEY GENERATION
-$cacheKey = 'products_' . md5($category);
-$cacheFile = $cacheDir . $cacheKey . '.cache';
-
-// 4. CACHE VALIDATION ALGORITHM
-if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < 3600)) {
-    // Cache hit - load from file
-    $products = unserialize(file_get_contents($cacheFile));
-} else {
-    // Cache miss - query database
-    $select_products = $conn->prepare("SELECT * FROM `products` WHERE name LIKE ?");
-    $select_products->execute(["%$category%"]);
-    $products = $select_products->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Update cache
-    file_put_contents($cacheFile, serialize($products));
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">

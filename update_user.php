@@ -11,176 +11,236 @@ if(isset($_SESSION['user_id'])){
    exit();
 }
 
-// Fetch current user data
-$select_profile = $conn->prepare("SELECT * FROM `users` WHERE id = ?");
-$select_profile->execute([$user_id]);
-$fetch_profile = $select_profile->fetch(PDO::FETCH_ASSOC);
+// User class to handle user-related operations
+class User {
+    private $conn;
+    private $user_id;
+    private $profile_data;
+    private $column_existence;
+    
+    public function __construct($conn, $user_id) {
+        $this->conn = $conn;
+        $this->user_id = $user_id;
+        $this->loadProfile();
+        $this->checkColumns();
+    }
+    
+    private function loadProfile() {
+        $select_profile = $this->conn->prepare("SELECT * FROM `users` WHERE id = ?");
+        $select_profile->execute([$this->user_id]);
+        $this->profile_data = $select_profile->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    private function checkColumns() {
+        $columns_to_check = ['gender', 'facebook', 'twitter', 'instagram', 'email_verified', 'two_factor_enabled', 'last_login', 'last_login_ip', 'created_at', 'updated_at'];
+        $this->column_existence = [];
+        
+        foreach ($columns_to_check as $column) {
+            $stmt = $this->conn->prepare("SHOW COLUMNS FROM `users` LIKE ?");
+            $stmt->execute([$column]);
+            $this->column_existence[$column] = ($stmt->rowCount() > 0);
+        }
+    }
+    
+    public function getProfileData() {
+        return $this->profile_data;
+    }
+    
+    public function columnExists($column) {
+        return isset($this->column_existence[$column]) ? $this->column_existence[$column] : false;
+    }
+    
+    public function updateProfile($data, $files) {
+        // Basic information
+        $name = filter_var($data['name'], FILTER_SANITIZE_STRING);
+        $email = filter_var($data['email'], FILTER_SANITIZE_EMAIL);
+        $phone = filter_var($data['phone'], FILTER_SANITIZE_STRING);
+        $address = filter_var($data['address'], FILTER_SANITIZE_STRING);
+        $birth_date = filter_var($data['birth_date'], FILTER_SANITIZE_STRING);
+        
+        if($this->columnExists('gender')){
+            $gender = filter_var($data['gender'], FILTER_SANITIZE_STRING);
+        }
 
-// Check if columns exist
-$columns_to_check = ['gender', 'facebook', 'twitter', 'instagram', 'email_verified', 'two_factor_enabled', 'last_login', 'last_login_ip'];
-$column_existence = [];
+        // Social links
+        if($this->columnExists('facebook')){
+            $facebook = filter_var($data['facebook'], FILTER_SANITIZE_URL);
+        }
+        
+        if($this->columnExists('twitter')){
+            $twitter = filter_var($data['twitter'], FILTER_SANITIZE_URL);
+        }
+        
+        if($this->columnExists('instagram')){
+            $instagram = filter_var($data['instagram'], FILTER_SANITIZE_URL);
+        }
 
-foreach ($columns_to_check as $column) {
-    $stmt = $conn->prepare("SHOW COLUMNS FROM `users` LIKE ?");
-    $stmt->execute([$column]);
-    $column_existence[$column] = ($stmt->rowCount() > 0);
+        // Handle profile picture upload
+        $profile_pic = $this->profile_data['profile_pic'];
+        
+        if(!empty($files['profile_pic']['name'])){
+            $upload_result = $this->handleProfilePictureUpload($files['profile_pic'], $profile_pic);
+            if(is_array($upload_result) && isset($upload_result['error'])) {
+                return $upload_result['error'];
+            } else {
+                $profile_pic = $upload_result;
+            }
+        }
+
+        // Build update query dynamically based on available columns
+        $update_fields = [
+            'name' => $name,
+            'email' => $email,
+            'phone' => $phone,
+            'address' => $address,
+            'profile_pic' => $profile_pic,
+            'birth_date' => $birth_date
+        ];
+        
+        if($this->columnExists('gender')){
+            $update_fields['gender'] = $gender;
+        }
+        
+        if($this->columnExists('facebook')){
+            $update_fields['facebook'] = $facebook;
+        }
+        
+        if($this->columnExists('twitter')){
+            $update_fields['twitter'] = $twitter;
+        }
+        
+        if($this->columnExists('instagram')){
+            $update_fields['instagram'] = $instagram;
+        }
+        
+        $set_clause = implode(', ', array_map(function($field){
+            return "`$field` = ?";
+        }, array_keys($update_fields)));
+        
+        $update_values = array_values($update_fields);
+        $update_values[] = $this->user_id;
+        
+        try {
+            $update_profile = $this->conn->prepare("UPDATE `users` SET $set_clause WHERE id = ?");
+            $update_profile->execute($update_values);
+            return true;
+        } catch (PDOException $e) {
+            return 'Database error: ' . $e->getMessage();
+        }
+    }
+    
+    private function handleProfilePictureUpload($file, $current_pic) {
+        $pic_name = $file['name'];
+        $pic_tmp_name = $file['tmp_name'];
+        $pic_size = $file['size'];
+        $pic_error = $file['error'];
+        $pic_type = $file['type'];
+        
+        $pic_ext = explode('.', $pic_name);
+        $pic_actual_ext = strtolower(end($pic_ext));
+        
+        $allowed = array('jpg', 'jpeg', 'png', 'gif', 'webp');
+        
+        if(in_array($pic_actual_ext, $allowed)){
+            if($pic_error === 0){
+                if($pic_size < 5000000){
+                    $pic_new_name = uniqid('', true).".".$pic_actual_ext;
+                    $pic_destination = 'uploaded_img/'.$pic_new_name;
+                    
+                    if(move_uploaded_file($pic_tmp_name, $pic_destination)){
+                        if($current_pic != '' && file_exists('uploaded_img/'.$current_pic)){
+                            unlink('uploaded_img/'.$current_pic);
+                        }
+                        return $pic_new_name;
+                    } else {
+                        return ['error' => 'There was an error uploading your picture!'];
+                    }
+                } else {
+                    return ['error' => 'Your picture is too big! Max 5MB allowed.'];
+                }
+            } else {
+                return ['error' => 'There was an error uploading your picture!'];
+            }
+        } else {
+            return ['error' => 'You cannot upload files of this type! Allowed: JPG, JPEG, PNG, GIF, WEBP'];
+        }
+    }
+    
+    public function updatePassword($old_pass, $new_pass, $cpass, $email, $name) {
+        $prev_pass = $this->profile_data['password'];
+        
+        if(!empty($old_pass) || !empty($new_pass) || !empty($cpass)){
+            if(empty($old_pass)){
+                return 'Please enter your old password!';
+            } elseif(!password_verify($old_pass, $prev_pass)){
+                return 'Old password not matched!';
+            } elseif($new_pass != $cpass){
+                return 'Confirm password not matched!';
+            } elseif(strlen($new_pass) < 8){
+                return 'Password must be at least 8 characters long!';
+            } elseif(!preg_match('/[A-Z]/', $new_pass) || !preg_match('/[0-9]/', $new_pass) || !preg_match('/[!@#$%^&*]/', $new_pass)){
+                return 'Password must contain at least one uppercase letter, one number and one special character!';
+            } else {
+                $hashed_password = password_hash($new_pass, PASSWORD_DEFAULT);
+                try {
+                    $update_admin_pass = $this->conn->prepare("UPDATE `users` SET password = ? WHERE id = ?");
+                    $update_admin_pass->execute([$hashed_password, $this->user_id]);
+                    
+                    // Send email notification about password change
+                    $to = $email;
+                    $subject = 'Password Changed';
+                    $message_text = "Hello $name,\n\nYour password has been successfully changed.\n\nIf you didn't make this change, please contact support immediately.";
+                    $headers = 'From: noreply@yourdomain.com';
+                    mail($to, $subject, $message_text, $headers);
+                    
+                    return true;
+                } catch (PDOException $e) {
+                    return 'Database error: ' . $e->getMessage();
+                }
+            }
+        }
+        return true;
+    }
+    
+    public function refreshProfile() {
+        $this->loadProfile();
+    }
 }
 
+// Create user object
+$user = new User($conn, $user_id);
+$fetch_profile = $user->getProfileData();
+
 if(isset($_POST['submit'])){
-   // Basic information
-   $name = $_POST['name'];
-   $name = filter_var($name, FILTER_SANITIZE_STRING);
-   $email = $_POST['email'];
-   $email = filter_var($email, FILTER_SANITIZE_EMAIL);
-   $phone = $_POST['phone'];
-   $phone = filter_var($phone, FILTER_SANITIZE_STRING);
-   $address = $_POST['address'];
-   $address = filter_var($address, FILTER_SANITIZE_STRING);
-   $birth_date = $_POST['birth_date'];
-   $birth_date = filter_var($birth_date, FILTER_SANITIZE_STRING);
-   
-   if($column_existence['gender']){
-      $gender = $_POST['gender'];
-      $gender = filter_var($gender, FILTER_SANITIZE_STRING);
-   }
-
-   // Social links
-   if($column_existence['facebook']){
-      $facebook = $_POST['facebook'];
-      $facebook = filter_var($facebook, FILTER_SANITIZE_URL);
-   }
-   
-   if($column_existence['twitter']){
-      $twitter = $_POST['twitter'];
-      $twitter = filter_var($twitter, FILTER_SANITIZE_URL);
-   }
-   
-   if($column_existence['instagram']){
-      $instagram = $_POST['instagram'];
-      $instagram = filter_var($instagram, FILTER_SANITIZE_URL);
-   }
-
-   // Handle profile picture upload
-   $profile_pic = $fetch_profile['profile_pic'];
-   
-   if(!empty($_FILES['profile_pic']['name'])){
-      $pic_name = $_FILES['profile_pic']['name'];
-      $pic_tmp_name = $_FILES['profile_pic']['tmp_name'];
-      $pic_size = $_FILES['profile_pic']['size'];
-      $pic_error = $_FILES['profile_pic']['error'];
-      $pic_type = $_FILES['profile_pic']['type'];
-      
-      $pic_ext = explode('.', $pic_name);
-      $pic_actual_ext = strtolower(end($pic_ext));
-      
-      $allowed = array('jpg', 'jpeg', 'png', 'gif', 'webp');
-      
-      if(in_array($pic_actual_ext, $allowed)){
-         if($pic_error === 0){
-            if($pic_size < 5000000){
-               $pic_new_name = uniqid('', true).".".$pic_actual_ext;
-               $pic_destination = 'uploaded_img/'.$pic_new_name;
-               
-               if(move_uploaded_file($pic_tmp_name, $pic_destination)){
-                  if($fetch_profile['profile_pic'] != '' && file_exists('uploaded_img/'.$fetch_profile['profile_pic'])){
-                     unlink('uploaded_img/'.$fetch_profile['profile_pic']);
-                  }
-                  $profile_pic = $pic_new_name;
-               } else {
-                  $message[] = 'There was an error uploading your picture!';
-               }
-            } else {
-               $message[] = 'Your picture is too big! Max 5MB allowed.';
-            }
-         } else {
-            $message[] = 'There was an error uploading your picture!';
-         }
-      } else {
-         $message[] = 'You cannot upload files of this type! Allowed: JPG, JPEG, PNG, GIF, WEBP';
-      }
-   }
-
-   // Build update query dynamically based on available columns
-   $update_fields = [
-      'name' => $name,
-      'email' => $email,
-      'phone' => $phone,
-      'address' => $address,
-      'profile_pic' => $profile_pic,
-      'birth_date' => $birth_date
-   ];
-   
-   if($column_existence['gender']){
-      $update_fields['gender'] = $gender;
-   }
-   
-   if($column_existence['facebook']){
-      $update_fields['facebook'] = $facebook;
-   }
-   
-   if($column_existence['twitter']){
-      $update_fields['twitter'] = $twitter;
-   }
-   
-   if($column_existence['instagram']){
-      $update_fields['instagram'] = $instagram;
-   }
-   
-   $set_clause = implode(', ', array_map(function($field){
-      return "`$field` = ?";
-   }, array_keys($update_fields)));
-   
-   $update_values = array_values($update_fields);
-   $update_values[] = $user_id;
-   
-   try {
-      $update_profile = $conn->prepare("UPDATE `users` SET $set_clause WHERE id = ?");
-      $update_profile->execute($update_values);
-   } catch (PDOException $e) {
-      $message[] = 'Database error: ' . $e->getMessage();
-   }
-
-   // Password update logic
-   $prev_pass = $fetch_profile['password'];
-   $old_pass = $_POST['old_pass'];
-   $new_pass = $_POST['new_pass'];
-   $cpass = $_POST['cpass'];
-
-   if(!empty($old_pass) || !empty($new_pass) || !empty($cpass)){
-      if(empty($old_pass)){
-         $message[] = 'Please enter your old password!';
-      } elseif(!password_verify($old_pass, $prev_pass)){
-         $message[] = 'Old password not matched!';
-      } elseif($new_pass != $cpass){
-         $message[] = 'Confirm password not matched!';
-      } elseif(strlen($new_pass) < 8){
-         $message[] = 'Password must be at least 8 characters long!';
-      } elseif(!preg_match('/[A-Z]/', $new_pass) || !preg_match('/[0-9]/', $new_pass) || !preg_match('/[!@#$%^&*]/', $new_pass)){
-         $message[] = 'Password must contain at least one uppercase letter, one number and one special character!';
-      } else {
-         $hashed_password = password_hash($new_pass, PASSWORD_DEFAULT);
-         try {
-            $update_admin_pass = $conn->prepare("UPDATE `users` SET password = ? WHERE id = ?");
-            $update_admin_pass->execute([$hashed_password, $user_id]);
+    // Update profile information
+    $update_result = $user->updateProfile($_POST, $_FILES);
+    
+    if($update_result !== true) {
+        $message[] = $update_result;
+    }
+    
+    // Password update logic
+    $password_result = $user->updatePassword(
+        $_POST['old_pass'], 
+        $_POST['new_pass'], 
+        $_POST['cpass'],
+        $_POST['email'],
+        $_POST['name']
+    );
+    
+    if($password_result !== true) {
+        $message[] = $password_result;
+    } else {
+        if(!empty($_POST['old_pass']) || !empty($_POST['new_pass']) || !empty($_POST['cpass'])) {
             $message[] = 'Profile and password updated successfully!';
-            
-            // Send email notification about password change
-            $to = $email;
-            $subject = 'Password Changed';
-            $message_text = "Hello $name,\n\nYour password has been successfully changed.\n\nIf you didn't make this change, please contact support immediately.";
-            $headers = 'From: noreply@yourdomain.com';
-            mail($to, $subject, $message_text, $headers);
-         } catch (PDOException $e) {
-            $message[] = 'Database error: ' . $e->getMessage();
-         }
-      }
-   } else {
-      $message[] = 'Profile updated successfully!';
-   }
-   
-   // Refresh profile data after update
-   $select_profile->execute([$user_id]);
-   $fetch_profile = $select_profile->fetch(PDO::FETCH_ASSOC);
+        } else {
+            $message[] = 'Profile updated successfully!';
+        }
+    }
+    
+    // Refresh profile data after update
+    $user->refreshProfile();
+    $fetch_profile = $user->getProfileData();
 }
 ?>
 
@@ -198,125 +258,127 @@ if(isset($_POST['submit'])){
    <!-- bootstrap cdn link -->
    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 
-   <!-- custom css file link  -->
+   <!-- custom css file links -->
    <link rel="stylesheet" href="css/style.css">
+   <link rel="stylesheet" href="css/profile.css">
 
    <style>
       .profile-container {
          max-width: 1200px;
-         margin: 0 auto;
-         padding: 2rem;
-      }
-      .profile-header {
-         text-align: center;
-         margin-bottom: 2rem;
-      }
-      .profile-pic-container {
-         position: relative;
-         width: 150px;
-         height: 150px;
-         margin: 0 auto 1rem;
-         border-radius: 50%;
-         overflow: hidden;
-         border: 5px solid #fff;
-         box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-      }
-      .profile-pic {
-         width: 100%;
-         height: 100%;
-         object-fit: cover;
-      }
-      .profile-pic-upload {
-         position: absolute;
-         bottom: 0;
-         left: 0;
-         right: 0;
-         background: rgba(0,0,0,0.5);
-         color: white;
-         text-align: center;
-         padding: 5px;
-         cursor: pointer;
-      }
-      .profile-pic-upload input {
-         display: none;
-      }
-      .form-section {
+         margin: 30px auto;
+         padding: 20px;
          background: #fff;
          border-radius: 10px;
-         box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-         padding: 2rem;
-         margin-bottom: 2rem;
+         box-shadow: 0 0 15px rgba(0,0,0,0.1);
       }
+      
+      .form-section {
+         background: #f9f9f9;
+         padding: 20px;
+         border-radius: 8px;
+         margin-bottom: 20px;
+      }
+      
       .section-title {
-         color: #2980b9;
-         border-bottom: 2px solid #f1f1f1;
+         color: #3498db;
+         border-bottom: 2px solid #3498db;
          padding-bottom: 10px;
          margin-bottom: 20px;
       }
-      .form-control {
-         padding: 12px 15px;
-         margin-bottom: 15px;
-         border-radius: 5px;
-         border: 1px solid #ddd;
+      
+      .profile-pic-container {
+         position: relative;
+         display: inline-block;
+         margin-bottom: 20px;
       }
-      .form-control:focus {
-         border-color: #2980b9;
-         box-shadow: 0 0 0 0.25rem rgba(41, 128, 185, 0.25);
+      
+      .profile-pic {
+         width: 150px;
+         height: 150px;
+         object-fit: cover;
+         border-radius: 50%;
+         border: 3px solid #3498db;
       }
-      .btn-update {
-         background: #2980b9;
-         color: white;
-         padding: 12px 30px;
-         border: none;
-         border-radius: 5px;
-         font-weight: 600;
-         transition: all 0.3s;
-      }
-      .btn-update:hover {
-         background: #3498db;
-         transform: translateY(-2px);
-      }
-      .password-toggle {
+      
+      .profile-pic-upload {
          position: absolute;
-         right: 10px;
-         top: 50%;
-         transform: translateY(-50%);
+         bottom: 5px;
+         right: 5px;
+         background: #3498db;
+         color: white;
+         border-radius: 50%;
+         width: 40px;
+         height: 40px;
+         display: flex;
+         align-items: center;
+         justify-content: center;
          cursor: pointer;
       }
-      .input-group {
-         position: relative;
+      
+      .profile-pic-upload input {
+         display: none;
       }
+      
+      .btn-update {
+         background: #3498db;
+         color: white;
+         padding: 12px 30px;
+         border-radius: 50px;
+         font-weight: bold;
+         transition: all 0.3s;
+      }
+      
+      .btn-update:hover {
+         background: #2980b9;
+         transform: translateY(-2px);
+      }
+      
       .password-strength {
          height: 5px;
-         margin-top: -10px;
-         margin-bottom: 15px;
          background: #eee;
+         margin-top: 5px;
          border-radius: 3px;
          overflow: hidden;
       }
+      
       .password-strength-bar {
          height: 100%;
-         width: 0%;
+         width: 0;
          transition: width 0.3s;
       }
-      .weak { background: #ff4757; width: 30%; }
-      .medium { background: #ffa502; width: 60%; }
-      .strong { background: #2ed573; width: 100%; }
+      
+      .password-strength-bar.weak {
+         background: #e74c3c;
+      }
+      
+      .password-strength-bar.medium {
+         background: #f39c12;
+      }
+      
+      .password-strength-bar.good {
+         background: #2ecc71;
+      }
+      
+      .password-strength-bar.strong {
+         background: #27ae60;
+      }
+      
       .progress-text {
          font-size: 12px;
-         color: #666;
-         margin-top: -5px;
+         margin-top: 5px;
+         color: #7f8c8d;
       }
-      .social-links .btn {
-         margin-right: 10px;
-         margin-bottom: 10px;
-      }
+      
       .verification-badge {
-         color: #2ecc71;
-         font-size: 14px;
-         margin-left: 5px;
+         color: #27ae60;
+         font-size: 0.8em;
+      }
+      
+      .input-group-text {
+         cursor: pointer;
       }
    </style>
+
 </head>
 <body>
    
@@ -328,7 +390,7 @@ if(isset($_POST['submit'])){
       foreach($message as $msg){
          echo '
          <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            '.htmlspecialchars($msg).'
+            '.htmlspecialchars($msg, ENT_QUOTES).'
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
          </div>
          ';
@@ -350,7 +412,7 @@ if(isset($_POST['submit'])){
                         <img src="images/default-avatar.png" class="profile-pic" id="profile-pic-preview" alt="Default Profile Picture">
                      <?php endif; ?>
                      <label class="profile-pic-upload">
-                        <i class="fas fa-camera"></i> Change Photo
+                        <i class="fas fa-camera"></i>
                         <input type="file" name="profile_pic" id="profile-pic-input" accept="image/*">
                      </label>
                   </div>
@@ -363,14 +425,14 @@ if(isset($_POST['submit'])){
                
                <div class="mb-3">
                   <label for="email" class="form-label">Email Address 
-                     <?php if($column_existence['email_verified'] && $fetch_profile['email_verified'] == 1): ?>
+                     <?php if($user->columnExists('email_verified') && isset($fetch_profile['email_verified']) && $fetch_profile['email_verified'] == 1): ?>
                         <span class="verification-badge"><i class="fas fa-check-circle"></i> Verified</span>
                      <?php else: ?>
                         <span class="text-danger"><small>(Not verified)</small></span>
                      <?php endif; ?>
                   </label>
                   <input type="email" name="email" class="form-control" id="email" required value="<?= htmlspecialchars($fetch_profile['email']); ?>">
-                  <?php if($column_existence['email_verified'] && $fetch_profile['email_verified'] == 0): ?>
+                  <?php if($user->columnExists('email_verified') && isset($fetch_profile['email_verified']) && $fetch_profile['email_verified'] == 0): ?>
                      <small class="text-muted">Check your email for verification link or <a href="send_verification.php">resend verification email</a></small>
                   <?php endif; ?>
                </div>
@@ -390,7 +452,7 @@ if(isset($_POST['submit'])){
                   <input type="date" name="birth_date" class="form-control" id="birth_date" value="<?= isset($fetch_profile['birth_date']) ? htmlspecialchars($fetch_profile['birth_date']) : ''; ?>">
                </div>
                
-               <?php if($column_existence['gender']): ?>
+               <?php if($user->columnExists('gender')): ?>
                <div class="mb-3">
                   <label for="gender" class="form-label">Gender</label>
                   <select name="gender" class="form-control" id="gender">
@@ -404,31 +466,31 @@ if(isset($_POST['submit'])){
                <?php endif; ?>
             </div>
             
+            <!-- Social Media Section -->
             <div class="form-section">
-               <h3 class="section-title">Social Links</h3>
-               <div class="mb-3">
-                  <label for="facebook" class="form-label">Facebook</label>
-                  <div class="input-group">
-                     <span class="input-group-text"><i class="fab fa-facebook-f"></i></span>
-                     <input type="url" name="facebook" class="form-control" id="facebook" placeholder="https://facebook.com/username" value="<?= isset($fetch_profile['facebook']) ? htmlspecialchars($fetch_profile['facebook']) : ''; ?>">
-                  </div>
-               </div>
+               <h3 class="section-title">Social Media</h3>
+               <p class="text-muted">Connect your social media accounts (optional)</p>
                
+               <?php if($user->columnExists('facebook')): ?>
                <div class="mb-3">
-                  <label for="twitter" class="form-label">Twitter</label>
-                  <div class="input-group">
-                     <span class="input-group-text"><i class="fab fa-twitter"></i></span>
-                     <input type="url" name="twitter" class="form-control" id="twitter" placeholder="https://twitter.com/username" value="<?= isset($fetch_profile['twitter']) ? htmlspecialchars($fetch_profile['twitter']) : ''; ?>">
-                  </div>
+                  <label for="facebook" class="form-label"><i class="fab fa-facebook"></i> Facebook</label>
+                  <input type="url" name="facebook" class="form-control" id="facebook" placeholder="https://facebook.com/username" value="<?= isset($fetch_profile['facebook']) ? htmlspecialchars($fetch_profile['facebook']) : ''; ?>">
                </div>
+               <?php endif; ?>
                
+               <?php if($user->columnExists('twitter')): ?>
                <div class="mb-3">
-                  <label for="instagram" class="form-label">Instagram</label>
-                  <div class="input-group">
-                     <span class="input-group-text"><i class="fab fa-instagram"></i></span>
-                     <input type="url" name="instagram" class="form-control" id="instagram" placeholder="https://instagram.com/username" value="<?= isset($fetch_profile['instagram']) ? htmlspecialchars($fetch_profile['instagram']) : ''; ?>">
-                  </div>
+                  <label for="twitter" class="form-label"><i class="fab fa-twitter"></i> Twitter</label>
+                  <input type="url" name="twitter" class="form-control" id="twitter" placeholder="https://twitter.com/username" value="<?= isset($fetch_profile['twitter']) ? htmlspecialchars($fetch_profile['twitter']) : ''; ?>">
                </div>
+               <?php endif; ?>
+               
+               <?php if($user->columnExists('instagram')): ?>
+               <div class="mb-3">
+                  <label for="instagram" class="form-label"><i class="fab fa-instagram"></i> Instagram</label>
+                  <input type="url" name="instagram" class="form-control" id="instagram" placeholder="https://instagram.com/username" value="<?= isset($fetch_profile['instagram']) ? htmlspecialchars($fetch_profile['instagram']) : ''; ?>">
+               </div>
+               <?php endif; ?>
             </div>
          </div>
          
@@ -441,12 +503,12 @@ if(isset($_POST['submit'])){
                
                <div class="mb-3 input-group">
                   <input type="password" name="old_pass" class="form-control" id="old_pass" placeholder="Enter your old password">
-                  <i class="fas fa-eye password-toggle" onclick="togglePassword('old_pass')"></i>
+                  <span class="input-group-text" onclick="togglePassword('old_pass')"><i class="fas fa-eye password-toggle"></i></span>
                </div>
                
                <div class="mb-3 input-group">
                   <input type="password" name="new_pass" class="form-control" id="new_pass" placeholder="Enter your new password">
-                  <i class="fas fa-eye password-toggle" onclick="togglePassword('new_pass')"></i>
+                  <span class="input-group-text" onclick="togglePassword('new_pass')"><i class="fas fa-eye password-toggle"></i></span>
                </div>
                <div class="password-strength">
                   <div class="password-strength-bar" id="password-strength-bar"></div>
@@ -455,7 +517,7 @@ if(isset($_POST['submit'])){
                
                <div class="mb-3 input-group">
                   <input type="password" name="cpass" class="form-control" id="cpass" placeholder="Confirm your new password">
-                  <i class="fas fa-eye password-toggle" onclick="togglePassword('cpass')"></i>
+                  <span class="input-group-text" onclick="togglePassword('cpass')"><i class="fas fa-eye password-toggle"></i></span>
                </div>
                
                <div class="alert alert-info">
@@ -471,20 +533,12 @@ if(isset($_POST['submit'])){
             
             <div class="form-section">
                <h3 class="section-title">Account Security</h3>
-               <div class="mb-3">
-                  <label class="form-label">Two-Factor Authentication</label>
-                  <div class="form-check form-switch">
-                     <input class="form-check-input" type="checkbox" id="twoFactorAuth" <?= ($column_existence['two_factor_enabled'] && $fetch_profile['two_factor_enabled']) ? 'checked' : ''; ?>>
-                     <label class="form-check-label" for="twoFactorAuth">Enable two-factor authentication</label>
-                  </div>
-                  <small class="text-muted">Add an extra layer of security to your account</small>
-               </div>
                
                <div class="mb-3">
                   <label class="form-label">Login Activity</label>
                   <div class="alert alert-light">
-                     <i class="fas fa-clock"></i> Last login: <?= ($column_existence['last_login'] && isset($fetch_profile['last_login'])) ? date('F j, Y \a\t g:i a', strtotime($fetch_profile['last_login'])) : 'Never logged in'; ?>
-                     <?php if($column_existence['last_login_ip'] && isset($fetch_profile['last_login_ip'])): ?>
+                     <i class="fas fa-clock"></i> Last login: <?= ($user->columnExists('last_login') && isset($fetch_profile['last_login'])) ? date('F j, Y \a\t g:i a', strtotime($fetch_profile['last_login'])) : 'Never logged in'; ?>
+                     <?php if($user->columnExists('last_login_ip') && isset($fetch_profile['last_login_ip'])): ?>
                         <br><i class="fas fa-network-wired"></i> IP: <?= htmlspecialchars($fetch_profile['last_login_ip']); ?>
                      <?php endif; ?>
                   </div>
@@ -494,25 +548,8 @@ if(isset($_POST['submit'])){
                <div class="mb-3">
                   <label class="form-label">Account Status</label>
                   <div class="alert alert-light">
-                     <i class="fas fa-user-shield"></i> Account created: <?= date('F j, Y', strtotime($fetch_profile['created_at'])); ?>
-                     <br><i class="fas fa-sync-alt"></i> Last updated: <?= date('F j, Y \a\t g:i a', strtotime($fetch_profile['updated_at'])); ?>
-                  </div>
-               </div>
-            </div>
-            
-            <div class="form-section">
-               <h3 class="section-title">Danger Zone</h3>
-               <div class="alert alert-danger">
-                  <h5><i class="fas fa-exclamation-triangle"></i> Warning</h5>
-                  <p>These actions are irreversible. Please proceed with caution.</p>
-                  
-                  <div class="d-grid gap-2">
-                     <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deactivateModal">
-                        <i class="fas fa-user-slash"></i> Deactivate Account
-                     </button>
-                     <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
-                        <i class="fas fa-trash-alt"></i> Delete Account Permanently
-                     </button>
+                     <i class="fas fa-user-shield"></i> Account created: <?= ($user->columnExists('created_at') && isset($fetch_profile['created_at'])) ? date('F j, Y', strtotime($fetch_profile['created_at'])) : 'Unknown'; ?>
+                     <br><i class="fas fa-sync-alt"></i> Last updated: <?= ($user->columnExists('updated_at') && isset($fetch_profile['updated_at'])) ? date('F j, Y \a\t g:i a', strtotime($fetch_profile['updated_at'])) : 'Unknown'; ?>
                   </div>
                </div>
             </div>
@@ -527,57 +564,10 @@ if(isset($_POST['submit'])){
    </form>
 </div>
 
-<!-- Deactivate Account Modal -->
-<div class="modal fade" id="deactivateModal" tabindex="-1" aria-labelledby="deactivateModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="deactivateModalLabel">Deactivate Account</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <p>Your account will be deactivated and your profile will not be visible to others. You can reactivate your account by logging in again.</p>
-        <p>Are you sure you want to deactivate your account?</p>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <a href="deactivate_account.php" class="btn btn-danger">Deactivate Account</a>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Delete Account Modal -->
-<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="deleteModalLabel">Delete Account Permanently</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <p>This action cannot be undone. All your data will be permanently deleted.</p>
-        <p>Are you absolutely sure you want to delete your account?</p>
-        <div class="form-check mb-3">
-          <input class="form-check-input" type="checkbox" id="confirmDelete">
-          <label class="form-check-label" for="confirmDelete">
-            I understand this action is irreversible
-          </label>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <a href="delete_account.php" class="btn btn-danger" id="deleteAccountBtn" disabled>Delete Account</a>
-      </div>
-    </div>
-  </div>
-</div>
-
 <?php include 'components/footer.php'; ?>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/zxcvbn.js"></script>
-<script src="js/script.js"></script>
 
 <script>
    // Profile picture preview
@@ -596,7 +586,7 @@ if(isset($_POST['submit'])){
    // Password toggle visibility
    function togglePassword(id) {
       const input = document.getElementById(id);
-      const icon = input.nextElementSibling;
+      const icon = input.parentElement.querySelector('.password-toggle');
       
       if (input.type === 'password') {
          input.type = 'text';
@@ -628,15 +618,22 @@ if(isset($_POST['submit'])){
       switch(score) {
          case 0:
          case 1:
+            strengthBar.style.width = '25%';
             strengthBar.className = 'password-strength-bar weak';
             strengthText.textContent = 'Weak password';
             break;
          case 2:
-         case 3:
+            strengthBar.style.width = '50%';
             strengthBar.className = 'password-strength-bar medium';
             strengthText.textContent = 'Medium strength password';
             break;
+         case 3:
+            strengthBar.style.width = '75%';
+            strengthBar.className = 'password-strength-bar good';
+            strengthText.textContent = 'Good password';
+            break;
          case 4:
+            strengthBar.style.width = '100%';
             strengthBar.className = 'password-strength-bar strong';
             strengthText.textContent = 'Strong password!';
             break;
@@ -681,29 +678,6 @@ if(isset($_POST['submit'])){
             return;
          }
       }
-   });
-   
-   // Delete account confirmation
-   document.getElementById('confirmDelete').addEventListener('change', function() {
-      document.getElementById('deleteAccountBtn').disabled = !this.checked;
-   });
-   
-   // Check if email is already taken (AJAX)
-   document.getElementById('email').addEventListener('blur', function() {
-      const email = this.value;
-      const currentEmail = '<?= $fetch_profile['email']; ?>';
-      
-      if(email === currentEmail) return;
-      
-      fetch('check_email.php?email=' + encodeURIComponent(email))
-         .then(response => response.json())
-         .then(data => {
-            if(data.exists) {
-               alert('This email is already registered!');
-               this.value = currentEmail;
-            }
-         })
-         .catch(error => console.error('Error:', error));
    });
 </script>
 

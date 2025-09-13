@@ -1,0 +1,174 @@
+/* profile.css */
+.profile-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.profile-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.profile-pic-container {
+    position: relative;
+    width: 150px;
+    height: 150px;
+    margin: 0 auto 1rem;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 5px solid #fff;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.profile-pic {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-pic-upload {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    text-align: center;
+    padding: 5px;
+    cursor: pointer;
+}
+
+.profile-pic-upload input {
+    display: none;
+}
+
+.form-section {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.section-title {
+    color: #2980b9;
+    border-bottom: 2px solid #f1f1f1;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.form-control {
+    padding: 12px 15px;
+    margin-bottom: 15px;
+    border-radius: 5px;
+    border: 1px solid #ddd;
+}
+
+.form-control:focus {
+    border-color: #2980b9;
+    box-shadow: 0 0 0 0.25rem rgba(41, 128, 185, 0.25);
+}
+
+.btn-update {
+    background: #2980b9;
+    color: white;
+    padding: 12px 30px;
+    border: none;
+    border-radius: 5px;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.btn-update:hover {
+    background: #3498db;
+    transform: translateY(-2px);
+}
+
+.password-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+}
+
+.input-group {
+    position: relative;
+}
+
+.password-strength {
+    height: 5px;
+    margin-top: -10px;
+    margin-bottom: 15px;
+    background: #eee;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.password-strength-bar {
+    height: 100%;
+    width: 0%;
+    transition: width 0.3s;
+}
+
+.weak { 
+    background: #ff4757; 
+    width: 30%; 
+}
+
+.medium { 
+    background: #ffa502; 
+    width: 60%; 
+}
+
+.strong { 
+    background: #2ed573; 
+    width: 100%; 
+}
+
+.progress-text {
+    font-size: 12px;
+    color: #666;
+    margin-top: -5px;
+}
+
+.social-links .btn {
+    margin-right: 10px;
+    margin-bottom: 10px;
+}
+
+.verification-badge {
+    color: #2ecc71;
+    font-size: 14px;
+    margin-left: 5px;
+}
+
+/* Modal specific styles */
+.modal-content {
+    border-radius: 10px;
+}
+
+.modal-header {
+    border-bottom: 1px solid #eee;
+}
+
+.modal-footer {
+    border-top: 1px solid #eee;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .profile-container {
+        padding: 1rem;
+    }
+    
+    .form-section {
+        padding: 1.5rem;
+    }
+    
+    .profile-pic-container {
+        width: 120px;
+        height: 120px;
+    }
+}

@@ -2,63 +2,104 @@
 session_start();
 include 'components/connect.php';
 
-// Include the same custom_hash function from your registration page
-function custom_hash($password) {
-    $pepper = "N3p@l$t0r3P3pp3r!"; // Must match the pepper from register.php
-    $salted_password = $password . $pepper;
+// User class to handle authentication
+class User {
+    private $conn;
+    private $pepper = "N3p@l4598!";
     
-    $key = 0;
-    $p = 31;
-    $q = 7;
-    $m = 1000000007;
-    
-    // Calculate initial key
-    for ($i = 0; $i < strlen($salted_password); $i++) {
-        $key = ($key * 31 + ord($salted_password[$i])) % $m;
+    public function __construct($db_conn) {
+        $this->conn = $db_conn;
     }
     
-    // Apply multiple iterations
-    for ($i = 0; $i < 1000; $i++) {
-        $key = ($key * $p + $q) % $m;
+    private function custom_hash($password) {
+        $salted_password = $password . $this->pepper;
+        
+        $key = 0;
+        $p = 31;
+        $q = 7;
+        $m = 1000000007;
+        
+        // Calculate initial key
+        for ($i = 0; $i < strlen($salted_password); $i++) {
+            $key = ($key * 31 + ord($salted_password[$i])) % $m;
+        }
+        
+        // Apply multiple iterations
+        for ($i = 0; $i < 1000; $i++) {
+            $key = ($key * $p + $q) % $m;
+        }
+        
+        return strval($key);
     }
     
-    return strval($key);
+    public function login($email, $password) {
+        try {
+            $hashed_password = $this->custom_hash($password);
+            
+            $select_user = $this->conn->prepare("SELECT * FROM `users` WHERE email = ? AND password = ?");
+            $select_user->execute([$email, $hashed_password]);
+            
+            if($select_user->rowCount() > 0){
+                $row = $select_user->fetch(PDO::FETCH_ASSOC);
+                $_SESSION['user_id'] = $row['id'];
+                return true;
+            }
+            
+            return false;
+        } catch(PDOException $exception) {
+            error_log("Login error: " . $exception->getMessage());
+            return false;
+        }
+    }
+    
+    public function isLoggedIn() {
+        return isset($_SESSION['user_id']);
+    }
+    
+    public function getUserId() {
+        return $_SESSION['user_id'] ?? '';
+    }
+    
+    public function redirectIfLoggedIn($location = 'home.php') {
+        if ($this->isLoggedIn()) {
+            header("Location: " . $location);
+            exit();
+        }
+    }
 }
 
-if(isset($_SESSION['user_id'])){
-   $user_id = $_SESSION['user_id'];
-}else{
-   $user_id = '';
-};
+// Initialize User object
+$user = new User($conn);
 
+// Check if user is already logged in
+$user_id = $user->getUserId();
+$user->redirectIfLoggedIn();
+
+// Message array for displaying errors
+$messages = [];
+
+// Process login form
 if(isset($_POST['submit'])){
    $email = $_POST['email'];
    $email = filter_var($email, FILTER_SANITIZE_STRING);
-   $pass = custom_hash($_POST['pass']); // Use custom_hash instead of sha1
-   $pass = filter_var($pass, FILTER_SANITIZE_STRING);
+   $pass = $_POST['pass'];
 
-   $select_user = $conn->prepare("SELECT * FROM `users` WHERE email = ? AND password = ?");
-   $select_user->execute([$email, $pass]);
-   $row = $select_user->fetch(PDO::FETCH_ASSOC);
-
-   if($select_user->rowCount() > 0){
-      $_SESSION['user_id'] = $row['id'];
+   if($user->login($email, $pass)){
       header('location:home.php');
       exit();
-   }else{
-      $message[] = 'Incorrect username or password!';
+   } else {
+      $messages[] = 'Incorrect username or password!';
    }
 }
 ?>
 
-<!-- The rest of your HTML remains exactly the same -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
    <meta charset="UTF-8">
    <meta http-equiv="X-UA-Compatible" content="IE=edge">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>Home | Nepal~Store</title>
+   <title>Login | Nepal~Store</title>
    
    <!-- Font Awesome -->
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -244,11 +285,20 @@ if(isset($_POST['submit'])){
       opacity: 0.6;
       cursor: pointer;
       transition: var(--transition);
+      background: transparent;
+      border: none;
+      outline: none;
+      z-index: 10;
+      padding: 0.5rem;
    }
 
    .password-toggle:hover {
       opacity: 1;
       color: var(--primary-color);
+   }
+
+   .form-control {
+      padding-right: 3rem !important;
    }
 
    .btn {
@@ -328,38 +378,12 @@ if(isset($_POST['submit'])){
       font-size: 0.9rem;
       animation: fadeIn 0.3s ease-out;
    }
-   .password-toggle {
-    position: absolute;
-    right: 1rem;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--text-color);
-    opacity: 0.6;
-    cursor: pointer;
-    transition: var(--transition);
-    background: transparent;
-    border: none;
-    outline: none;
-    z-index: 10; /* Ensure it stays above other elements */
-    padding: 0.5rem; /* Add some clickable area */
-}
-
-.password-toggle:hover {
-    opacity: 1;
-    color: var(--primary-color);
-}
-
-/* Ensure the input field has enough padding to prevent text under the toggle */
-.form-control {
-    padding-right: 3rem !important; /* Make space for the toggle */
-}
 
    @keyframes fadeIn {
       from { opacity: 0; transform: translateY(-10px); }
       to { opacity: 1; transform: translateY(0); }
    }
 
-   /* Social login buttons */
    .social-login {
       display: flex;
       gap: 1rem;
@@ -391,7 +415,6 @@ if(isset($_POST['submit'])){
       box-shadow: var(--shadow);
    }
 
-   /* Responsive adjustments */
    @media (max-width: 576px) {
       .form-container {
          padding: 1.5rem;
@@ -403,6 +426,56 @@ if(isset($_POST['submit'])){
       
       .logo {
          font-size: 1.5rem;
+      }
+   }
+
+   .cube-container {
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+   }
+
+   .rotating-cube {
+      font-size: 1.5rem;
+      color: var(--primary-color);
+      animation: rotateCube 8s infinite linear;
+      transform-style: preserve-3d;
+   }
+
+   .logo-text {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-color);
+      display: inline-block;
+      animation: waveText 3s ease-in-out infinite;
+   }
+
+   @keyframes rotateCube {
+      0% {
+          transform: rotateY(0deg) rotateZ(0deg);
+      }
+      25% {
+          transform: rotateY(90deg) rotateZ(10deg);
+      }
+      50% {
+          transform: rotateY(180deg) rotateZ(0deg);
+      }
+      75% {
+          transform: rotateY(270deg) rotateZ(-10deg);
+      }
+      100% {
+          transform: rotateY(360deg) rotateZ(0deg);
+      }
+   }
+
+   @keyframes waveText {
+      0%, 100% {
+          transform: translateY(0);
+      }
+      50% {
+          transform: translateY(-3px);
       }
    }
    </style>
@@ -421,81 +494,6 @@ if(isset($_POST['submit'])){
     </button>
 </header>
 
-<style>
-/* Logo container */
-.logo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    text-decoration: none;
-}
-
-/* Cube container styles */
-.cube-container {
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.rotating-cube {
-    font-size: 1.5rem;
-    color: var(--primary-color);
-    animation: rotateCube 8s infinite linear;
-    transform-style: preserve-3d;
-}
-
-/* Logo text styles */
-.logo-text {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--text-color);
-    display: inline-block;
-    animation: waveText 3s ease-in-out infinite;
-}
-
-/* Animations */
-@keyframes rotateCube {
-    0% {
-        transform: rotateY(0deg) rotateZ(0deg);
-    }
-    25% {
-        transform: rotateY(90deg) rotateZ(10deg);
-    }
-    50% {
-        transform: rotateY(180deg) rotateZ(0deg);
-    }
-    75% {
-        transform: rotateY(270deg) rotateZ(-10deg);
-    }
-    100% {
-        transform: rotateY(360deg) rotateZ(0deg);
-    }
-}
-
-@keyframes waveText {
-    0%, 100% {
-        transform: translateY(0);
-    }
-    50% {
-        transform: translateY(-3px);
-    }
-}
-
-/* Make sure header has proper spacing */
-.header {
-    padding: 1rem 5%;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-</style>
-    <button class="theme-toggle" id="themeToggle">
-        <i class="fas fa-moon"></i>
-    </button>
-</header>
-
 <main>
     <section class="form-container">
         <div class="form-header">
@@ -504,8 +502,8 @@ if(isset($_POST['submit'])){
         </div>
         
         <?php
-        if(isset($message)){
-            foreach($message as $msg){
+        if(!empty($messages)){
+            foreach($messages as $msg){
                 echo '<div class="message">'.$msg.'</div>';
             }
         }
@@ -521,19 +519,18 @@ if(isset($_POST['submit'])){
             </div>
             
             <div class="form-group">
-    <label for="password">Password</label>
-    <div class="input-with-icon" style="position: relative;">
-        <i class="fas fa-lock"></i>
-        <input type="password" id="password" name="pass" required placeholder="Enter your password" class="form-control" oninput="this.value = this.value.replace(/\s/g, '')">
-        <button type="button" class="password-toggle" id="togglePassword">
-            <i class="fas fa-eye"></i>
-        </button>
-    </div>
-    <div class="form-footer" style="text-align: right; margin-top: 0.5rem;">
-        <a href="forget_password.php">Forgot password?</a>
-    </div>
-</div>
-
+                <label for="password">Password</label>
+                <div class="input-with-icon" style="position: relative;">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="password" name="pass" required placeholder="Enter your password" class="form-control" oninput="this.value = this.value.replace(/\s/g, '')">
+                    <button type="button" class="password-toggle" id="togglePassword">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+                <div class="form-footer" style="text-align: right; margin-top: 0.5rem;">
+                    <a href="forget_password.php">Forgot password?</a>
+                </div>
+            </div>
             
             <button type="submit" class="btn" name="submit">
                 <i class="fas fa-sign-in-alt"></i>
@@ -544,31 +541,12 @@ if(isset($_POST['submit'])){
                 <span>or continue with</span>
             </div>
             
-            <div class="social-login">
-                <button type="button" class="social-btn google">
-                    <i class="fab fa-google"></i>
-                    <span>Google</span>
-                </button>
-                <button type="button" class="social-btn facebook">
-                    <i class="fab fa-facebook-f"></i>
-                    <span>Facebook</span>
-                </button>
-                <button type="button" class="social-btn apple">
-                    <i class="fab fa-apple"></i>
-                    <span>Apple</span>
-                </button>
-            </div>
-            
             <div class="form-footer">
                 Don't have an account? <a href="user_register.php">Sign up</a>
             </div>
         </form>
     </section>
 </main>
-
-
-
-<script src="js/script.js"></script>
 
 <script>
    // Password toggle functionality
@@ -578,8 +556,8 @@ if(isset($_POST['submit'])){
    togglePassword.addEventListener('click', function (e) {
       const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
       password.setAttribute('type', type);
-      this.classList.toggle('fa-eye');
-      this.classList.toggle('fa-eye-slash');
+      this.querySelector('i').classList.toggle('fa-eye');
+      this.querySelector('i').classList.toggle('fa-eye-slash');
    });
 
    // Theme toggle functionality

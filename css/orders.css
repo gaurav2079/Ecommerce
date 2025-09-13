@@ -1,0 +1,231 @@
+/* Orders Page Styles */
+.orders-section {
+   padding: 3rem 1rem 5rem;
+}
+
+.orders-header {
+   margin-bottom: 2rem;
+   text-align: center;
+}
+
+.orders-title {
+   font-size: 2rem;
+   font-weight: 700;
+   color: var(--dark);
+   margin: 0;
+   position: relative;
+   display: inline-block;
+}
+
+.orders-title::after {
+   content: '';
+   position: absolute;
+   bottom: -8px;
+   left: 50%;
+   transform: translateX(-50%);
+   width: 60px;
+   height: 4px;
+   background: var(--primary);
+   border-radius: 2px;
+}
+
+.orders-container {
+   display: grid;
+   grid-template-columns: 1fr;
+   gap: 1.5rem;
+}
+
+.order-card {
+   background-color: white;
+   border-radius: var(--radius-md);
+   box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+   padding: 1.5rem;
+   transition: var(--transition);
+}
+
+.order-card:hover {
+   transform: translateY(-3px);
+   box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+}
+
+.order-header {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   margin-bottom: 1rem;
+   padding-bottom: 1rem;
+   border-bottom: 1px solid #e2e8f0;
+}
+
+.order-id {
+   font-weight: 600;
+   color: var(--primary);
+   font-size: 1.1rem;
+}
+
+.order-date {
+   color: var(--dark-gray);
+   font-size: 0.9rem;
+}
+
+.order-details {
+   margin-bottom: 1.5rem;
+}
+
+.order-product {
+   margin-bottom: 0.5rem;
+   font-size: 1rem;
+}
+
+.order-price {
+   font-weight: 700;
+   font-size: 1.2rem;
+   color: var(--dark);
+   margin: 1rem 0;
+}
+
+.order-status {
+   display: inline-block;
+   padding: 0.5rem 1rem;
+   border-radius: 50px;
+   font-size: 0.9rem;
+   font-weight: 600;
+   margin-bottom: 1rem;
+}
+
+.status-pending {
+   background-color: #fffbeb;
+   color: #d97706;
+}
+
+.status-processing {
+   background-color: #eff6ff;
+   color: #1d4ed8;
+}
+
+.status-shipped {
+   background-color: #ecfdf5;
+   color: #059669;
+}
+
+.status-delivered {
+   background-color: #f0fdf4;
+   color: #16a34a;
+}
+
+.status-cancelled {
+   background-color: #fef2f2;
+   color: #dc2626;
+}
+
+.order-actions {
+   display: flex;
+   gap: 0.75rem;
+   justify-content: flex-end;
+}
+
+.order-btn {
+   padding: 0.6rem 1.2rem;
+   border-radius: var(--radius-sm);
+   font-size: 0.9rem;
+   font-weight: 500;
+   display: inline-flex;
+   align-items: center;
+   gap: 0.5rem;
+   cursor: pointer;
+   transition: var(--transition);
+   border: none;
+}
+
+.order-btn-primary {
+   background-color: var(--primary);
+   color: white;
+}
+
+.order-btn-primary:hover {
+   background-color: var(--primary-dark);
+}
+
+.order-btn-danger {
+   background-color: white;
+   color: var(--danger);
+   border: 1px solid var(--danger);
+}
+
+.order-btn-danger:hover {
+   background-color: #fef2f2;
+}
+
+.empty-orders {
+   text-align: center;
+   padding: 3rem 2rem;
+   background-color: white;
+   border-radius: var(--radius-md);
+   box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.empty-icon {
+   font-size: 3rem;
+   color: var(--gray);
+   margin-bottom: 1.5rem;
+}
+
+.empty-title {
+   font-size: 1.5rem;
+   font-weight: 600;
+   color: var(--dark);
+   margin-bottom: 1rem;
+}
+
+.empty-description {
+   color: var(--dark-gray);
+   margin-bottom: 2rem;
+}
+
+.empty-action {
+   display: inline-block;
+   padding: 0.8rem 1.5rem;
+   background-color: var(--primary);
+   color: white;
+   border-radius: var(--radius-sm);
+   font-weight: 500;
+   text-decoration: none;
+   transition: var(--transition);
+}
+
+.empty-action:hover {
+   background-color: var(--primary-dark);
+}
+
+.login-prompt {
+   text-align: center;
+   padding: 3rem 2rem;
+   background-color: white;
+   border-radius: var(--radius-md);
+   box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.login-title {
+   font-size: 1.5rem;
+   font-weight: 600;
+   color: var(--dark);
+   margin-bottom: 1.5rem;
+}
+
+.login-link {
+   color: var(--primary);
+   font-weight: 600;
+   text-decoration: none;
+}
+
+@media (max-width: 768px) {
+   .order-actions {
+      flex-direction: column;
+      gap: 0.5rem;
+   }
+   
+   .order-btn {
+      width: 100%;
+      justify-content: center;
+   }
+}

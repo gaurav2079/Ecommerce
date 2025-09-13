@@ -378,7 +378,7 @@ if(isset($_POST['update_qty'])){
             
             <div class="cart-item-details">
                <a href="quick_view.php?pid=<?= $fetch_cart['pid']; ?>" class="cart-item-title"><?= $fetch_cart['name']; ?></a>
-               <div class="cart-item-price">₹<?= number_format($fetch_cart['price'], 2); ?></div>
+               <div class="cart-item-price">रु-<?= number_format($fetch_cart['price'], 2); ?></div>
                <div>In stock</div>
                <div>Eligible for FREE Shipping</div>
             </div>
@@ -392,7 +392,7 @@ if(isset($_POST['update_qty'])){
                   </button>
                </div>
                
-               <div class="sub-total">Subtotal: ₹<?= number_format($sub_total, 2); ?></div>
+               <div class="sub-total">Subtotal: रु-<?= number_format($sub_total, 2); ?></div>
                
                <button type="submit" onclick="return confirm('Delete this item from cart?');" class="delete-btn" name="delete">
                   <i class="fas fa-trash"></i> Remove
@@ -423,7 +423,7 @@ if(isset($_POST['update_qty'])){
          <div class="summary-details">
             <div class="summary-row">
                <span class="summary-label">Subtotal (<?= $item_count ?> item<?= $item_count != 1 ? 's' : '' ?>):</span>
-               <span class="summary-value">₹<?= number_format($grand_total, 2); ?></span>
+               <span class="summary-value">रु-<?= number_format($grand_total, 2); ?></span>
             </div>
             <div class="summary-row">
                <span class="summary-label">Delivery:</span>
@@ -434,7 +434,7 @@ if(isset($_POST['update_qty'])){
          <div class="grand-total">
             <div class="summary-row">
                <span>Total:</span>
-               <span>₹<?= number_format($grand_total, 2); ?></span>
+               <span>रु-<?= number_format($grand_total, 2); ?></span>
             </div>
          </div>
          

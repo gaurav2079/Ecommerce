@@ -1,6 +1,149 @@
 <?php
-include 'components/connect.php';
+// File: components/ProductSearch.php
+class ProductSearch {
+    private $conn;
+    private $all_products;
+    
+    public function __construct($conn) {
+        $this->conn = $conn;
+        $this->loadAllProducts();
+    }
+    
+    private function loadAllProducts() {
+        try {
+            $stmt = $this->conn->prepare("SELECT * FROM `products`");
+            $stmt->execute();
+            $this->all_products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $this->sortProductsByName();
+        } catch (PDOException $e) {
+            error_log("Product loading error: " . $e->getMessage());
+            $this->all_products = [];
+        }
+    }
+    
+    private function sortProductsByName() {
+        usort($this->all_products, function($a, $b) {
+            return strcmp(strtolower($a['name']), strtolower($b['name']));
+        });
+    }
+    
+    public function binarySearch($search_term) {
+        if (empty($search_term) || empty($this->all_products)) {
+            return [];
+        }
+        
+        $matches = [];
+        $low = 0;
+        $high = count($this->all_products) - 1;
+        $search_term = strtolower($search_term);
+        
+        while ($low <= $high) {
+            $mid = floor(($low + $high) / 2);
+            $current_name = strtolower($this->all_products[$mid]['name']);
+            
+            if ($this->containsString($current_name, $search_term)) {
+                $matches[] = $this->all_products[$mid];
+                
+                // Check left side
+                $left = $mid - 1;
+                while ($left >= 0 && $this->containsString(
+                    strtolower($this->all_products[$left]['name']), $search_term)) {
+                    $matches[] = $this->all_products[$left];
+                    $left--;
+                }
+                
+                // Check right side
+                $right = $mid + 1;
+                while ($right < count($this->all_products) && $this->containsString(
+                    strtolower($this->all_products[$right]['name']), $search_term)) {
+                    $matches[] = $this->all_products[$right];
+                    $right++;
+                }
+                
+                return $matches;
+            }
+            
+            if (strcmp($search_term, $current_name) < 0) {
+                $high = $mid - 1;
+            } else {
+                $low = $mid + 1;
+            }
+        }
+        
+        return $matches;
+    }
+    
+    private function containsString($haystack, $needle) {
+        $haystack_length = $this->stringLength($haystack);
+        $needle_length = $this->stringLength($needle);
+        
+        if ($needle_length === 0) return true;
+        if ($haystack_length < $needle_length) return false;
+        
+        for ($i = 0; $i <= $haystack_length - $needle_length; $i++) {
+            $match = true;
+            for ($j = 0; $j < $needle_length; $j++) {
+                if ($haystack[$i + $j] !== $needle[$j]) {
+                    $match = false;
+                    break;
+                }
+            }
+            if ($match) return true;
+        }
+        
+        return false;
+    }
+    
+    private function stringLength($str) {
+        $length = 0;
+        while (isset($str[$length])) {
+            $length++;
+        }
+        return $length;
+    }
+}
 
+// File: components/SearchController.php
+class SearchController {
+    private $product_search;
+    private $search_term;
+    private $search_results;
+    private $search_message;
+    
+    public function __construct($conn, $search_term) {
+        $this->product_search = new ProductSearch($conn);
+        $this->search_term = trim($search_term);
+        $this->search_results = [];
+        $this->search_message = '';
+    }
+    
+    public function executeSearch() {
+        if (!empty($this->search_term)) {
+            try {
+                $this->search_results = $this->product_search->binarySearch($this->search_term);
+                $result_count = count($this->search_results);
+                $this->search_message = $result_count . " results for \"" . htmlspecialchars($this->search_term) . "\"";
+            } catch (Exception $e) {
+                error_log("Search error: " . $e->getMessage());
+                $this->search_message = "Search temporarily unavailable";
+            }
+        }
+    }
+    
+    public function getSearchResults() {
+        return $this->search_results;
+    }
+    
+    public function getSearchMessage() {
+        return $this->search_message;
+    }
+    
+    public function getSearchTerm() {
+        return $this->search_term;
+    }
+}
+
+// Main execution
 session_start();
 
 if(isset($_SESSION['user_id'])){
@@ -9,62 +152,16 @@ if(isset($_SESSION['user_id'])){
    $user_id = '';
 };
 
+include 'components/connect.php';
 include 'components/wishlist_cart.php';
 
-// Pagination setup
-$per_page = 12;
-$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-$offset = ($page - 1) * $per_page;
+$search_term = isset($_GET['search_box']) ? $_GET['search_box'] : '';
+$search_controller = new SearchController($conn, $search_term);
+$search_controller->executeSearch();
 
-// Search functionality
-$search_results = [];
-$total_results = 0;
-$search_term = '';
-$search_message = '';
-
-if(isset($_POST['search_box']) || isset($_POST['search_btn'])){
-    $search_term = trim($_POST['search_box']);
-    
-    if(!empty($search_term)){
-        try {
-            // First try a simple LIKE search (works on all MySQL versions)
-            $stmt = $conn->prepare("
-                SELECT * FROM `products` 
-                WHERE name LIKE :search
-                ORDER BY name ASC
-                LIMIT :offset, :per_page
-            ");
-            $search_param = "%$search_term%";
-            $stmt->bindValue(':search', $search_param, PDO::PARAM_STR);
-            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-            $stmt->bindValue(':per_page', $per_page, PDO::PARAM_INT);
-            $stmt->execute();
-            $search_results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            // Get total count for pagination
-            $count_stmt = $conn->prepare("
-                SELECT COUNT(*) as total 
-                FROM `products`
-                WHERE name LIKE :search
-            ");
-            $count_stmt->bindValue(':search', $search_param, PDO::PARAM_STR);
-            $count_stmt->execute();
-            $total_results = $count_stmt->fetch(PDO::FETCH_ASSOC)['total'];
-            
-            $search_message = "Search results for:";
-            
-        } catch (PDOException $e) {
-            error_log("Search error: " . $e->getMessage());
-            echo '<div class="no-results animate__animated animate__fadeIn">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <p class="empty">Search temporarily unavailable</p>
-                  </div>';
-        }
-    }
-}
-
-// Calculate total pages for pagination
-$total_pages = ceil($total_results / $per_page);
+$search_results = $search_controller->getSearchResults();
+$search_message = $search_controller->getSearchMessage();
+$search_term = $search_controller->getSearchTerm();
 ?>
 
 <!DOCTYPE html>
@@ -73,266 +170,106 @@ $total_pages = ceil($total_results / $per_page);
    <meta charset="UTF-8">
    <meta http-equiv="X-UA-Compatible" content="IE=edge">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>Search Products</title>
-   
-   <!-- font awesome cdn link  -->
-   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
-   
-   <!-- animate.css for loading animations -->
-   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
-   
-   <!-- custom css file link  -->
+   <title>Search Products - Nepal~Store</title>
+   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
    <link rel="stylesheet" href="css/style.css">
-   
-   <style>
-      .search-form {
-         background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-         padding: 3rem 2rem;
-         border-radius: 10px;
-         box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-         margin: 2rem auto;
-         max-width: 800px;
-      }
-      
-      .search-form form {
-         display: flex;
-         align-items: center;
-      }
-      
-      .search-form .box {
-         flex: 1;
-         padding: 1.2rem;
-         font-size: 1.1rem;
-         border: 2px solid #ddd;
-         border-radius: 50px;
-         transition: all 0.3s;
-      }
-      
-      .search-form .box:focus {
-         border-color: #2980b9;
-         outline: none;
-         box-shadow: 0 0 10px rgba(41, 128, 185, 0.3);
-      }
-      
-      .search-form .fas.fa-search {
-         background: #2980b9;
-         color: white;
-         border: none;
-         padding: 1.2rem 1.5rem;
-         border-radius: 50px;
-         margin-left: -50px;
-         cursor: pointer;
-         transition: all 0.3s;
-      }
-      
-      .search-form .fas.fa-search:hover {
-         background: #3498db;
-         transform: scale(1.05);
-      }
-      
-      .products .box-container {
-         display: grid;
-         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-         gap: 2rem;
-         padding: 2rem;
-      }
-      
-      .products .box {
-         transition: transform 0.3s, box-shadow 0.3s;
-      }
-      
-      .products .box:hover {
-         transform: translateY(-5px);
-         box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-      }
-      
-      .no-results {
-         text-align: center;
-         grid-column: 1 / -1;
-         padding: 3rem;
-         background: #f8f9fa;
-         border-radius: 10px;
-      }
-      
-      .no-results i {
-         font-size: 3rem;
-         color: #ccc;
-         margin-bottom: 1rem;
-      }
-      
-      .search-info {
-         text-align: center;
-         margin: 1rem 0;
-         color: #666;
-         font-style: italic;
-      }
-      
-      .loading {
-         display: none;
-         text-align: center;
-         padding: 2rem;
-      }
-      
-      .loading-spinner {
-         width: 50px;
-         height: 50px;
-         border: 5px solid #f3f3f3;
-         border-top: 5px solid #3498db;
-         border-radius: 50%;
-         animation: spin 1s linear infinite;
-         margin: 0 auto;
-      }
-      
-      .pagination {
-         display: flex;
-         justify-content: center;
-         margin: 2rem 0;
-         flex-wrap: wrap;
-      }
-      
-      .pagination a {
-         color: #2980b9;
-         padding: 0.5rem 1rem;
-         margin: 0 0.25rem;
-         text-decoration: none;
-         border: 1px solid #ddd;
-         border-radius: 4px;
-         transition: all 0.3s;
-      }
-      
-      .pagination a.active,
-      .pagination a:hover {
-         background: #2980b9;
-         color: white;
-         border-color: #2980b9;
-      }
-      
-      .pagination a.disabled {
-         color: #ccc;
-         pointer-events: none;
-      }
-      
-      @keyframes spin {
-         0% { transform: rotate(0deg); }
-         100% { transform: rotate(360deg); }
-      }
-   </style>
+   <link rel="stylesheet" href="css/search.css">
 </head>
 <body>
    
 <?php include 'components/user_header.php'; ?>
 
-<section class="search-form animate__animated animate__fadeIn">
-   <form action="" method="post" id="searchForm">
-      <input type="text" name="search_box" placeholder="Search for products..." maxlength="100" class="box" required 
-             value="<?= htmlspecialchars($search_term) ?>">
-      <button type="submit" class="fas fa-search" name="search_btn"></button>
-   </form>
-</section>
-
-<section class="products" style="padding-top: 0; min-height:100vh;">
-   <div id="loading" class="loading">
-      <div class="loading-spinner"></div>
-      <p>Searching products...</p>
+<div class="search-page-container">
+   <div class="search-header">
+      <form action="" method="get" class="search-form">
+         <div class="search-input-container">
+            <input type="text" name="search_box" placeholder="Search for products..." 
+                   value="<?= htmlspecialchars($search_term) ?>" required>
+            <button type="submit" class="search-button">
+               <i class="fas fa-search"></i>
+            </button>
+         </div>
+      </form>
    </div>
-   
-   <div class="box-container" id="searchResults">
-   <?php
-   if(!empty($search_term)){
-      echo '<div class="search-info">'.$search_message.' <strong>"'.htmlspecialchars($search_term).'"</strong></div>';
-      
-      if(!empty($search_results)){
-         foreach($search_results as $product){
-   ?>
-   <form action="" method="post" class="box animate__animated animate__fadeInUp">
-      <input type="hidden" name="pid" value="<?= $product['id'] ?>">
-      <input type="hidden" name="name" value="<?= $product['name'] ?>">
-      <input type="hidden" name="price" value="<?= $product['price'] ?>">
-      <input type="hidden" name="image" value="<?= $product['image_01'] ?>">
-      <button class="fas fa-heart" type="submit" name="add_to_wishlist"></button>
-      <a href="quick_view.php?pid=<?= $product['id'] ?>" class="fas fa-eye"></a>
-      <img src="uploaded_img/<?= $product['image_01'] ?>" alt="<?= $product['name'] ?>" loading="lazy">
-      <div class="name"><?= $product['name'] ?></div>
-      <div class="flex">
-         <div class="price"><span>₹</span><?= $product['price'] ?><span>/-</span></div>
-                  <input type="number" name="qty" class="qty" min="1" max="99" onkeypress="if(this.value.length == 2) return false;" value="1">
 
+   <div class="search-content">
+      <?php if(!empty($search_term)): ?>
+      <div class="search-results-header">
+         <div class="results-count"><?= $search_message ?></div>
       </div>
-      <input type="submit" value="add to cart" class="btn" name="add_to_cart">
-   </form>
-   <?php
-         }
-      } else {
-         echo '<div class="no-results animate__animated animate__fadeIn">
+
+      <div class="search-results-container">
+         <?php if(!empty($search_results)): ?>
+            <div class="product-grid">
+               <?php foreach($search_results as $product): ?>
+               <div class="product-card">
+                  <div class="product-image">
+                     <a href="quick_view.php?pid=<?= $product['id'] ?>">
+                        <img src="uploaded_img/<?= $product['image_01'] ?>" alt="<?= $product['name'] ?>">
+                     </a>
+                     <form action="" method="post" class="wishlist-form">
+                        <input type="hidden" name="pid" value="<?= $product['id'] ?>">
+                        <input type="hidden" name="name" value="<?= $product['name'] ?>">
+                        <input type="hidden" name="price" value="<?= $product['price'] ?>">
+                        <input type="hidden" name="image" value="<?= $product['image_01'] ?>">
+                        <button type="submit" name="add_to_wishlist" class="wishlist-button">
+                           <i class="far fa-heart"></i>
+                        </button>
+                     </form>
+                     <div class="quick-view">
+                        <a href="quick_view.php?pid=<?= $product['id'] ?>">Quick View</a>
+                     </div>
+                  </div>
+                  <div class="product-info">
+                     <h3 class="product-title">
+                        <a href="quick_view.php?pid=<?= $product['id'] ?>"><?= $product['name'] ?></a>
+                     </h3>
+                     <div class="product-price">
+                        <span class="price-symbol">₹</span>
+                        <span class="price-amount"><?= number_format($product['price'], 2) ?></span>
+                     </div>
+                     <form action="" method="post" class="add-to-cart-form">
+                        <input type="hidden" name="pid" value="<?= $product['id'] ?>">
+                        <input type="hidden" name="name" value="<?= $product['name'] ?>">
+                        <input type="hidden" name="price" value="<?= $product['price'] ?>">
+                        <input type="hidden" name="image" value="<?= $product['image_01'] ?>">
+                        <div class="quantity-container">
+                           <label>Qty:</label>
+                           <input type="number" name="qty" min="1" max="99" value="1">
+                        </div>
+                        <button type="submit" name="add_to_cart" class="add-to-cart-button">
+                           <i class="fas fa-shopping-cart"></i> Add to Cart
+                        </button>
+                     </form>
+                  </div>
+               </div>
+               <?php endforeach; ?>
+            </div>
+         <?php else: ?>
+            <div class="no-results-found">
+               <div class="no-results-icon">
                   <i class="fas fa-search-minus"></i>
-                  <p class="empty">No products found matching your search!</p>
-                  <p>Try different keywords or check our featured products.</p>
-               </div>';
-      }
-      
-      // Pagination
-      if($total_pages > 1){
-         echo '<div class="pagination">';
-         if($page > 1){
-            echo '<a href="?search_box='.urlencode($search_term).'&page='.($page-1).'">&laquo; Previous</a>';
-         }
-         
-         for($i = 1; $i <= $total_pages; $i++){
-            if($i == $page){
-               echo '<a class="active">'.$i.'</a>';
-            } else {
-               echo '<a href="?search_box='.urlencode($search_term).'&page='.$i.'">'.$i.'</a>';
-            }
-         }
-         
-         if($page < $total_pages){
-            echo '<a href="?search_box='.urlencode($search_term).'&page='.($page+1).'">Next &raquo;</a>';
-         }
-         echo '</div>';
-      }
-   }
-   ?>
+               </div>
+               <h3>No products found for "<?= htmlspecialchars($search_term) ?>"</h3>
+               <p>Try checking your spelling or use more general terms</p>
+               <a href="home.php" class="continue-shopping-btn">Continue Shopping</a>
+            </div>
+         <?php endif; ?>
+      </div>
+      <?php else: ?>
+      <div class="search-empty-state">
+         <div class="empty-icon">
+            <i class="fas fa-search"></i>
+         </div>
+         <h3>Search for products</h3>
+         <p>Find your favorite products by typing in the search box above</p>
+      </div>
+      <?php endif; ?>
    </div>
-</section>
+</div>
 
 <?php include 'components/footer.php'; ?>
 
 <script src="js/script.js"></script>
-
-<script>
-   document.addEventListener('DOMContentLoaded', function() {
-      const searchForm = document.getElementById('searchForm');
-      const searchResults = document.getElementById('searchResults');
-      const loading = document.getElementById('loading');
-      
-      if(searchForm) {
-         searchForm.addEventListener('submit', function() {
-            searchResults.style.display = 'none';
-            loading.style.display = 'block';
-            
-            setTimeout(() => {
-               loading.style.display = 'none';
-               searchResults.style.display = 'grid';
-            }, 800);
-         });
-      }
-      
-      const productBoxes = document.querySelectorAll('.products .box');
-      productBoxes.forEach(box => {
-         box.addEventListener('mouseenter', () => {
-            box.classList.add('animate__pulse');
-         });
-         box.addEventListener('mouseleave', () => {
-            box.classList.remove('animate__pulse');
-         });
-      });
-      
-      // Auto-focus search input on page load if there's a search term
-      <?php if(!empty($search_term)): ?>
-         document.querySelector('input[name="search_box"]').focus();
-      <?php endif; ?>
-   });
-</script>
-
 </body>
 </html>

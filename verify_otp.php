@@ -1,32 +1,121 @@
 <?php
 include 'components/connect.php';
 
+// Enable error reporting for debugging
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// Include Composer autoload
+require 'vendor/autoload.php';
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
+// OTP Generator class
+class OTPGenerator {
+    public static function generate($length = 6) {
+        $otp = '';
+        $characters = '0123456789';
+        $max = strlen($characters) - 1;
+        
+        for ($i = 0; $i < $length; $i++) {
+            $otp .= $characters[random_int(0, $max)];
+        }
+        
+        return $otp;
+    }
+}
+
+// Email Sender class
+class EmailSender {
+    public static function sendOTP($email, $otp) {
+        $mail = new PHPMailer(true);
+        
+        try {
+            // SMTP config
+            $mail->isSMTP();
+            $mail->Host       = 'smtp.gmail.com';
+            $mail->SMTPAuth   = true;
+            $mail->Username   = 'kandelgaurav04@gmail.com';
+            $mail->Password   = 'xmnfszxvelzuettu';
+            $mail->SMTPSecure = 'tls';
+            $mail->Port       = 587;
+
+            // Sender & recipient
+            $mail->setFrom('Nepal~Store@gmail.com', 'Nepal~Store Support');
+            $mail->addAddress($email);
+
+            // Email content
+            $mail->isHTML(true);
+            $mail->Subject = 'Password Reset OTP';
+            $mail->Body    = "Hello,<br><br>Your OTP for password reset is: <strong>$otp</strong><br><br>This OTP will expire in 5 minutes.<br><br>Regards,<br>Nepal~Store Team";
+
+            return $mail->send();
+        } catch (Exception $e) {
+            error_log("Mailer Error: " . $mail->ErrorInfo);
+            return false;
+        }
+    }
+}
+
+// Start session only if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 $email = $_GET['email'] ?? '';
 $message = [];
 
+// Handle OTP verification
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $entered_otp = $_POST['otp'];
+    if (isset($_POST['otp'])) {
+        // OTP verification
+        $entered_otp = $_POST['otp'];
 
-    $stmt = $conn->prepare("SELECT otp, otp_expiry FROM users WHERE email = ?");
-    $stmt->execute([$email]);
-    $user = $stmt->fetch();
+        $stmt = $conn->prepare("SELECT otp, otp_expiry FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        $user = $stmt->fetch();
 
-    if ($user) {
-        if (time() <= $user['otp_expiry']) {
-            if ($entered_otp == $user['otp']) {
-                // OTP is correct and valid
-                header("Location: reset_password_form.php?email=" . urlencode($email));
-                exit();
+        if ($user) {
+            if (time() <= $user['otp_expiry']) {
+                if ($entered_otp == $user['otp']) {
+                    // OTP is correct and valid
+                    header("Location: reset_password_form.php?email=" . urlencode($email));
+                    exit();
+                } else {
+                    $message[] = "Incorrect OTP. Please try again.";
+                }
             } else {
-                $message[] = "Incorrect OTP. Please try again.";
+                $message[] = "OTP has expired. Please request a new one.";
             }
         } else {
-            $message[] = "OTP has expired. Please request a new one.";
+            $message[] = "User not found.";
         }
-    } else {
-        $message[] = "User not found.";
+    } elseif (isset($_POST['resend_otp'])) {
+        // Resend OTP
+        $otp = OTPGenerator::generate();
+        $expiry_time = time() + 300; // 5 minutes expiry
+
+        $update_otp = $conn->prepare("UPDATE users SET otp = ?, otp_expiry = ? WHERE email = ?");
+        if ($update_otp->execute([$otp, $expiry_time, $email])) {
+            if (EmailSender::sendOTP($email, $otp)) {
+                $message[] = "New OTP has been sent to your email.";
+                // Set session variable to track when OTP was last sent
+                $_SESSION['otp_sent_time'] = time();
+            } else {
+                $message[] = "Failed to send OTP. Please try again.";
+            }
+        } else {
+            $message[] = "Error generating OTP. Please try again.";
+        }
     }
 }
+
+// Check if OTP was recently sent to determine countdown time
+$otp_sent_time = $_SESSION['otp_sent_time'] ?? time();
+$elapsed_time = time() - $otp_sent_time;
+$countdown_time = max(0, 15 - $elapsed_time); // 15 seconds countdown
 ?>
 
 <!DOCTYPE html>
@@ -34,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verify OTP - GKStore</title>
+    <title>Verify OTP - Nepal~Store</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -178,40 +267,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border: 1px solid rgba(245, 158, 11, 0.2);
         }
         
+        .alert-success {
+            background-color: rgba(22, 163, 74, 0.1);
+            color: var(--success);
+            border: 1px solid rgba(22, 163, 74, 0.2);
+        }
+        
         .alert i {
             margin-right: 10px;
             font-size: 16px;
         }
         
-        .resend-link {
+        .resend-section {
             margin-top: 20px;
             font-size: 14px;
             color: var(--gray);
         }
         
-        .resend-link a {
+        .countdown {
+            font-weight: 600;
+            color: var(--primary);
+        }
+        
+        .resend-link {
+            display: none;
             color: var(--primary);
             text-decoration: none;
             font-weight: 500;
+            cursor: pointer;
         }
         
-        .resend-link a:hover {
+        .resend-link:hover {
             text-decoration: underline;
+        }
+        
+        .resend-form {
+            display: inline;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="logo">
-            <img src="images/logo.jpg" alt="GKStore Logo">
+            <img src="images/logo.jpg" alt="Nepal~Store Logo">
         </div>
         
         <h2>Verify Your Identity</h2>
         <p class="subtitle">We've sent a 6-digit verification code to your email<br><?php echo htmlspecialchars($email); ?></p>
         
         <?php if (!empty($message)): ?>
-            <div class="alert <?php echo strpos($message[0], 'expired') !== false ? 'alert-warning' : 'alert-danger'; ?>">
-                <i class="fas <?php echo strpos($message[0], 'expired') !== false ? 'fa-exclamation-triangle' : 'fa-exclamation-circle'; ?>"></i>
+            <div class="alert <?php 
+                if (strpos($message[0], 'expired') !== false) echo 'alert-warning';
+                elseif (strpos($message[0], 'New OTP') !== false) echo 'alert-success';
+                else echo 'alert-danger';
+            ?>">
+                <i class="fas <?php 
+                    if (strpos($message[0], 'expired') !== false) echo 'fa-exclamation-triangle';
+                    elseif (strpos($message[0], 'New OTP') !== false) echo 'fa-check-circle';
+                    else echo 'fa-exclamation-circle';
+                ?>"></i>
                 <?php echo $message[0]; ?>
             </div>
         <?php endif; ?>
@@ -224,9 +338,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </button>
         </form>
         
-        <p class="resend-link">
-            Didn't receive the code? <a href="forgot_password.php">Resend OTP</a>
-        </p>
+        <div class="resend-section">
+            <span id="countdown-text" class="countdown">Resend OTP in <span id="countdown"><?php echo $countdown_time; ?></span> seconds</span>
+            <form method="POST" class="resend-form" id="resend-form">
+                <input type="hidden" name="resend_otp" value="1">
+                <a class="resend-link" onclick="document.getElementById('resend-form').submit();">Resend OTP</a>
+            </form>
+        </div>
     </div>
+
+    <script>
+        // Countdown timer
+        let countdown = <?php echo $countdown_time; ?>;
+        const countdownElement = document.getElementById('countdown');
+        const countdownText = document.getElementById('countdown-text');
+        const resendLink = document.querySelector('.resend-link');
+        
+        function updateCountdown() {
+            if (countdown > 0) {
+                countdown--;
+                countdownElement.textContent = countdown;
+                setTimeout(updateCountdown, 1000);
+            } else {
+                countdownText.style.display = 'none';
+                resendLink.style.display = 'inline';
+            }
+        }
+        
+        // Start countdown if needed
+        if (countdown > 0) {
+            setTimeout(updateCountdown, 1000);
+        } else {
+            countdownText.style.display = 'none';
+            resendLink.style.display = 'inline';
+        }
+    </script>
 </body>
 </html>
