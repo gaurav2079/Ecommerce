@@ -1,14 +1,215 @@
-<?php
+<?php 
 include 'components/connect.php';
+
+// Include PHPMailer classes
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
+require 'vendor/autoload.php'; // Adjust path as needed
 
 session_start();
 
+// Function to ensure required columns exist in users table
+function ensureUserColumnsExist($conn) {
+    $columns_to_check = [
+        'last_login' => "ALTER TABLE `users` ADD `last_login` DATETIME NULL AFTER `password`",
+        'last_login_ip' => "ALTER TABLE `users` ADD `last_login_ip` VARCHAR(45) NULL AFTER `last_login`",
+        'created_at' => "ALTER TABLE `users` ADD `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER `last_login_ip`",
+        'updated_at' => "ALTER TABLE `users` ADD `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER `created_at`"
+    ];
+    
+    foreach ($columns_to_check as $column => $sql) {
+        try {
+            $stmt = $conn->prepare("SHOW COLUMNS FROM `users` LIKE ?");
+            $stmt->execute([$column]);
+            if($stmt->rowCount() == 0) {
+                $conn->exec($sql);
+                error_log("Added column $column to users table");
+            }
+        } catch (PDOException $e) {
+            error_log("Error checking/adding column $column: " . $e->getMessage());
+        }
+    }
+}
+
+// Call this function to ensure columns exist
+ensureUserColumnsExist($conn);
+
 if(isset($_SESSION['user_id'])){
    $user_id = $_SESSION['user_id'];
+   
+   // Update last login time and IP when user accesses the page
+   // This will run on every page load, but we'll check if it's a new login
+   $current_time = date('Y-m-d H:i:s');
+   $ip_address = $_SERVER['REMOTE_ADDR'];
+   $user_agent = $_SERVER['HTTP_USER_AGENT'];
+   
+   // Check if we need to update the login time (first visit in this session)
+   if (!isset($_SESSION['login_updated'])) {
+      $update_login = $conn->prepare("UPDATE `users` SET last_login = ?, last_login_ip = ?, updated_at = ? WHERE id = ?");
+      $update_login->execute([$current_time, $ip_address, $current_time, $user_id]);
+      
+      // Record login history (we'll handle this in the User class)
+      $_SESSION['login_updated'] = true;
+   }
+   
 }else{
    $user_id = '';
    header('location:login.php');
    exit();
+}
+
+// LoginHistory class to handle login history operations
+class LoginHistory {
+    private $conn;
+    private $user_id;
+    
+    public function __construct($conn, $user_id) {
+        $this->conn = $conn;
+        $this->user_id = $user_id;
+        $this->createTableIfNotExists();
+    }
+    
+    private function createTableIfNotExists() {
+        // Check if table exists
+        $table_exists = $this->conn->query("SHOW TABLES LIKE 'login_history'")->rowCount() > 0;
+        
+        if (!$table_exists) {
+            // Create the login_history table
+            $sql = "CREATE TABLE `login_history` (
+                `id` INT(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                `user_id` INT(11) NOT NULL,
+                `ip_address` VARCHAR(45) NOT NULL,
+                `user_agent` TEXT NOT NULL,
+                `success` TINYINT(1) NOT NULL DEFAULT 1,
+                `login_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX `user_id_index` (`user_id`),
+                INDEX `login_time_index` (`login_time`)
+            )";
+            
+            try {
+                $this->conn->exec($sql);
+                error_log("Login history table created successfully");
+            } catch (PDOException $e) {
+                error_log("Error creating login_history table: " . $e->getMessage());
+            }
+        }
+    }
+    
+    public function recordLoginHistory($ip_address, $user_agent, $success = true) {
+        try {
+            $stmt = $this->conn->prepare("
+                INSERT INTO `login_history` (`user_id`, `ip_address`, `user_agent`, `success`) 
+                VALUES (?, ?, ?, ?)
+            ");
+            return $stmt->execute([$this->user_id, $ip_address, $user_agent, $success]);
+        } catch (PDOException $e) {
+            error_log("Error recording login: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    public function getLoginHistory($limit = 10) {
+        try {
+            $limit = (int)$limit;
+            $stmt = $this->conn->prepare("
+                SELECT * FROM `login_history` 
+                WHERE `user_id` = ? 
+                ORDER BY `login_time` DESC 
+                LIMIT $limit
+            ");
+            $stmt->execute([$this->user_id]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error fetching login history: " . $e->getMessage());
+            return [];
+        }
+    }
+    
+    public function getTotalLogins() {
+        try {
+            $stmt = $this->conn->prepare("
+                SELECT COUNT(*) as total FROM `login_history` 
+                WHERE `user_id` = ? AND `success` = 1
+            ");
+            $stmt->execute([$this->user_id]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $result['total'] ?? 0;
+        } catch (PDOException $e) {
+            error_log("Error counting logins: " . $e->getMessage());
+            return 0;
+        }
+    }
+}
+
+// ActivityLog class for tracking profile updates
+class ActivityLog {
+    private $conn;
+    private $user_id;
+    
+    public function __construct($conn, $user_id) {
+        $this->conn = $conn;
+        $this->user_id = $user_id;
+        $this->createTableIfNotExists();
+    }
+    
+    private function createTableIfNotExists() {
+        // Check if table exists
+        $table_exists = $this->conn->query("SHOW TABLES LIKE 'activity_log'")->rowCount() > 0;
+        
+        if (!$table_exists) {
+            // Create the activity_log table
+            $sql = "CREATE TABLE `activity_log` (
+                `id` INT(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                `user_id` INT(11) NOT NULL,
+                `activity_type` VARCHAR(50) NOT NULL,
+                `activity_details` TEXT,
+                `ip_address` VARCHAR(45),
+                `activity_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX `user_id_index` (`user_id`),
+                INDEX `activity_time_index` (`activity_time`),
+                INDEX `activity_type_index` (`activity_type`)
+            )";
+            
+            try {
+                $this->conn->exec($sql);
+                error_log("Activity log table created successfully");
+            } catch (PDOException $e) {
+                error_log("Error creating activity_log table: " . $e->getMessage());
+            }
+        }
+    }
+    
+    public function recordActivity($activity_type, $activity_details = null) {
+        try {
+            $ip_address = $_SERVER['REMOTE_ADDR'];
+            $stmt = $this->conn->prepare("
+                INSERT INTO `activity_log` (`user_id`, `activity_type`, `activity_details`, `ip_address`) 
+                VALUES (?, ?, ?, ?)
+            ");
+            return $stmt->execute([$this->user_id, $activity_type, $activity_details, $ip_address]);
+        } catch (PDOException $e) {
+            error_log("Error recording activity: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    public function getRecentActivities($limit = 10) {
+        try {
+            $limit = (int)$limit;
+            $stmt = $this->conn->prepare("
+                SELECT * FROM `activity_log` 
+                WHERE `user_id` = ? 
+                ORDER BY `activity_time` DESC 
+                LIMIT $limit
+            ");
+            $stmt->execute([$this->user_id]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error fetching activities: " . $e->getMessage());
+            return [];
+        }
+    }
 }
 
 // User class to handle user-related operations
@@ -17,10 +218,15 @@ class User {
     private $user_id;
     private $profile_data;
     private $column_existence;
+    private $pepper = "N3p@l4598!";
+    private $loginHistory;
+    private $activityLog;
     
     public function __construct($conn, $user_id) {
         $this->conn = $conn;
         $this->user_id = $user_id;
+        $this->loginHistory = new LoginHistory($conn, $user_id);
+        $this->activityLog = new ActivityLog($conn, $user_id);
         $this->loadProfile();
         $this->checkColumns();
     }
@@ -32,7 +238,7 @@ class User {
     }
     
     private function checkColumns() {
-        $columns_to_check = ['gender', 'facebook', 'twitter', 'instagram', 'email_verified', 'two_factor_enabled', 'last_login', 'last_login_ip', 'created_at', 'updated_at'];
+        $columns_to_check = ['gender', 'last_login', 'last_login_ip', 'created_at', 'updated_at'];
         $this->column_existence = [];
         
         foreach ($columns_to_check as $column) {
@@ -50,29 +256,65 @@ class User {
         return isset($this->column_existence[$column]) ? $this->column_existence[$column] : false;
     }
     
+    public function getLoginHistory() {
+        return $this->loginHistory->getLoginHistory();
+    }
+    
+    public function getTotalLogins() {
+        return $this->loginHistory->getTotalLogins();
+    }
+    
+    public function getRecentActivities() {
+        return $this->activityLog->getRecentActivities();
+    }
+    
+    private function custom_hash($password) {
+        $salted_password = $password . $this->pepper;
+        
+        $key = 0;
+        $p = 31;
+        $q = 7;
+        $m = 1000000007;
+        
+        // Calculate initial key
+        for ($i = 0; $i < strlen($salted_password); $i++) {
+            $key = ($key * 31 + ord($salted_password[$i])) % $m;
+        }
+        
+        // Apply multiple iterations
+        for ($i = 0; $i < 1000; $i++) {
+            $key = ($key * $p + $q) % $m;
+        }
+        
+        return strval($key);
+    }
+    
     public function updateProfile($data, $files) {
-        // Basic information
+        // Basic information with validation
         $name = filter_var($data['name'], FILTER_SANITIZE_STRING);
         $email = filter_var($data['email'], FILTER_SANITIZE_EMAIL);
         $phone = filter_var($data['phone'], FILTER_SANITIZE_STRING);
         $address = filter_var($data['address'], FILTER_SANITIZE_STRING);
         $birth_date = filter_var($data['birth_date'], FILTER_SANITIZE_STRING);
         
+        // Name validation - only letters and spaces allowed
+        if (!preg_match("/^[a-zA-Z ]*$/", $name)) {
+            return 'Name can only contain letters and spaces!';
+        }
+        
+        // Email validation with specific format
+        if (!preg_match('/^\d{0,3}[A-Za-z]+[0-9]*@gmail\.com$/', $email)) {
+            return 'Invalid email format! Email must be in the format: 0-3 digits followed by letters and optional numbers, ending with @gmail.com';
+        }
+        
+        // Phone validation - only numbers, and 8-10 digits starting with 97, 98, or 96
+        $phone = preg_replace('/[^0-9]/', '', $phone); // Remove non-numeric characters
+        if (!empty($phone) && !preg_match("/^(97|98|96)[0-9]{8}$/", $phone)) {
+            return 'Phone number must be 10 digits starting with 97, 98, or 96!';
+        }
+        
         if($this->columnExists('gender')){
             $gender = filter_var($data['gender'], FILTER_SANITIZE_STRING);
-        }
-
-        // Social links
-        if($this->columnExists('facebook')){
-            $facebook = filter_var($data['facebook'], FILTER_SANITIZE_URL);
-        }
-        
-        if($this->columnExists('twitter')){
-            $twitter = filter_var($data['twitter'], FILTER_SANITIZE_URL);
-        }
-        
-        if($this->columnExists('instagram')){
-            $instagram = filter_var($data['instagram'], FILTER_SANITIZE_URL);
         }
 
         // Handle profile picture upload
@@ -101,16 +343,10 @@ class User {
             $update_fields['gender'] = $gender;
         }
         
-        if($this->columnExists('facebook')){
-            $update_fields['facebook'] = $facebook;
-        }
-        
-        if($this->columnExists('twitter')){
-            $update_fields['twitter'] = $twitter;
-        }
-        
-        if($this->columnExists('instagram')){
-            $update_fields['instagram'] = $instagram;
+        // Add updated_at timestamp if column exists
+        $current_time = date('Y-m-d H:i:s');
+        if($this->columnExists('updated_at')) {
+            $update_fields['updated_at'] = $current_time;
         }
         
         $set_clause = implode(', ', array_map(function($field){
@@ -123,6 +359,10 @@ class User {
         try {
             $update_profile = $this->conn->prepare("UPDATE `users` SET $set_clause WHERE id = ?");
             $update_profile->execute($update_values);
+            
+            // Record profile update in activity log
+            $this->activityLog->recordActivity('profile_update', 'User updated their profile information');
+            
             return true;
         } catch (PDOException $e) {
             return 'Database error: ' . $e->getMessage();
@@ -172,7 +412,7 @@ class User {
         if(!empty($old_pass) || !empty($new_pass) || !empty($cpass)){
             if(empty($old_pass)){
                 return 'Please enter your old password!';
-            } elseif(!password_verify($old_pass, $prev_pass)){
+            } elseif($this->custom_hash($old_pass) !== $prev_pass){
                 return 'Old password not matched!';
             } elseif($new_pass != $cpass){
                 return 'Confirm password not matched!';
@@ -181,17 +421,23 @@ class User {
             } elseif(!preg_match('/[A-Z]/', $new_pass) || !preg_match('/[0-9]/', $new_pass) || !preg_match('/[!@#$%^&*]/', $new_pass)){
                 return 'Password must contain at least one uppercase letter, one number and one special character!';
             } else {
-                $hashed_password = password_hash($new_pass, PASSWORD_DEFAULT);
+                $hashed_password = $this->custom_hash($new_pass);
                 try {
                     $update_admin_pass = $this->conn->prepare("UPDATE `users` SET password = ? WHERE id = ?");
                     $update_admin_pass->execute([$hashed_password, $this->user_id]);
                     
-                    // Send email notification about password change
-                    $to = $email;
-                    $subject = 'Password Changed';
-                    $message_text = "Hello $name,\n\nYour password has been successfully changed.\n\nIf you didn't make this change, please contact support immediately.";
-                    $headers = 'From: noreply@yourdomain.com';
-                    mail($to, $subject, $message_text, $headers);
+                    // Update the updated_at timestamp if column exists
+                    if($this->columnExists('updated_at')) {
+                        $current_time = date('Y-m-d H:i:s');
+                        $update_timestamp = $this->conn->prepare("UPDATE `users` SET updated_at = ? WHERE id = ?");
+                        $update_timestamp->execute([$current_time, $this->user_id]);
+                    }
+                    
+                    // Log password change activity
+                    $this->activityLog->recordActivity('password_change', 'User changed their password');
+                    
+                    // Send email notification about password change using PHPMailer
+                    $this->sendPasswordChangeEmail($email, $name);
                     
                     return true;
                 } catch (PDOException $e) {
@@ -202,14 +448,74 @@ class User {
         return true;
     }
     
+    private function sendPasswordChangeEmail($email, $name) {
+        try {
+            $mail = new PHPMailer(true);
+            
+            // Server settings
+            $mail->isSMTP();
+            $mail->Host       = 'smtp.gmail.com'; // Set your SMTP server
+            $mail->SMTPAuth   = true;
+            $mail->Username   = 'your-email@gmail.com'; // SMTP username
+            $mail->Password   = 'your-app-password'; // SMTP password (use app password for Gmail)
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+            $mail->Port       = 587;
+            
+            // Recipients
+            $mail->setFrom('noreply@yourdomain.com', 'Nepal Store');
+            $mail->addAddress($email, $name);
+            
+            // Content
+            $mail->isHTML(true);
+            $mail->Subject = 'Password Changed';
+            $mail->Body    = "
+                <html>
+                <body>
+                    <h2>Password Changed Successfully</h2>
+                    <p>Hello $name,</p>
+                    <p>Your password has been successfully changed.</p>
+                    <p>If you didn't make this change, please contact support immediately.</p>
+                    <br>
+                    <p>Best regards,<br>Nepal Store Team</p>
+                </body>
+                </html>
+            ";
+            
+            $mail->AltBody = "Hello $name,\n\nYour password has been successfully changed.\n\nIf you didn't make this change, please contact support immediately.";
+            
+            $mail->send();
+            return true;
+        } catch (Exception $e) {
+            // Log error but don't show to user as it's not critical
+            error_log("Email could not be sent. Mailer Error: {$mail->ErrorInfo}");
+            return false;
+        }
+    }
+    
     public function refreshProfile() {
         $this->loadProfile();
+    }
+    
+    public function recordLoginHistory($ip_address, $user_agent) {
+        return $this->loginHistory->recordLoginHistory($ip_address, $user_agent);
     }
 }
 
 // Create user object
 $user = new User($conn, $user_id);
 $fetch_profile = $user->getProfileData();
+
+// Record the login history after creating the user object
+if (!isset($_SESSION['login_recorded'])) {
+    $ip_address = $_SERVER['REMOTE_ADDR'];
+    $user_agent = $_SERVER['HTTP_USER_AGENT'];
+    $user->recordLoginHistory($ip_address, $user_agent);
+    $_SESSION['login_recorded'] = true;
+}
+
+// Get login history for display
+$login_history = $user->getLoginHistory();
+$total_logins = $user->getTotalLogins();
 
 if(isset($_POST['submit'])){
     // Update profile information
@@ -241,6 +547,9 @@ if(isset($_POST['submit'])){
     // Refresh profile data after update
     $user->refreshProfile();
     $fetch_profile = $user->getProfileData();
+    
+    // Refresh login history after update
+    $login_history = $user->getLoginHistory();
 }
 ?>
 
@@ -369,13 +678,50 @@ if(isset($_POST['submit'])){
          color: #7f8c8d;
       }
       
-      .verification-badge {
-         color: #27ae60;
-         font-size: 0.8em;
-      }
-      
       .input-group-text {
          cursor: pointer;
+      }
+      
+      .error-message {
+         color: red;
+         font-size: 14px;
+         margin-top: 5px;
+         display: none;
+      }
+      
+      .login-history-table {
+         font-size: 14px;
+         max-height: 200px;
+         overflow-y: auto;
+      }
+      
+      .login-history-table th {
+         background-color: #f8f9fa;
+         position: sticky;
+         top: 0;
+      }
+      
+      .login-item {
+         border-bottom: 1px solid #dee2e6;
+         padding: 8px 0;
+      }
+      
+      .login-item:last-child {
+         border-bottom: none;
+      }
+      
+      .ip-address {
+         font-family: monospace;
+         background: #e9ecef;
+         padding: 2px 6px;
+         border-radius: 4px;
+         font-size: 0.8rem;
+      }
+      
+      .device-icon {
+         font-size: 1.2rem;
+         margin-right: 8px;
+         color: #6c757d;
       }
    </style>
 
@@ -398,7 +744,7 @@ if(isset($_POST['submit'])){
    }
    ?>
 
-   <form action="" method="post" enctype="multipart/form-data">
+   <form action="" method="post" enctype="multipart/form-data" id="profile-form">
       <div class="row">
          <div class="col-md-6">
             <div class="form-section">
@@ -421,25 +767,19 @@ if(isset($_POST['submit'])){
                <div class="mb-3">
                   <label for="name" class="form-label">Full Name</label>
                   <input type="text" name="name" class="form-control" id="name" required value="<?= htmlspecialchars($fetch_profile['name']); ?>">
+                  <div class="error-message" id="name-error">Name can only contain letters and spaces!</div>
                </div>
                
                <div class="mb-3">
-                  <label for="email" class="form-label">Email Address 
-                     <?php if($user->columnExists('email_verified') && isset($fetch_profile['email_verified']) && $fetch_profile['email_verified'] == 1): ?>
-                        <span class="verification-badge"><i class="fas fa-check-circle"></i> Verified</span>
-                     <?php else: ?>
-                        <span class="text-danger"><small>(Not verified)</small></span>
-                     <?php endif; ?>
-                  </label>
+                  <label for="email" class="form-label">Email Address</label>
                   <input type="email" name="email" class="form-control" id="email" required value="<?= htmlspecialchars($fetch_profile['email']); ?>">
-                  <?php if($user->columnExists('email_verified') && isset($fetch_profile['email_verified']) && $fetch_profile['email_verified'] == 0): ?>
-                     <small class="text-muted">Check your email for verification link or <a href="send_verification.php">resend verification email</a></small>
-                  <?php endif; ?>
+                  <div class="error-message" id="email-error">Email must be in the format: 0-3 digits followed by letters and optional numbers, ending with @gmail.com</div>
                </div>
                
                <div class="mb-3">
                   <label for="phone" class="form-label">Phone Number</label>
-                  <input type="tel" name="phone" class="form-control" id="phone" value="<?= isset($fetch_profile['phone']) ? htmlspecialchars($fetch_profile['phone']) : ''; ?>">
+                  <input type="tel" name="phone" class="form-control" id="phone" value="<?= isset($fetch_profile['phone']) ? htmlspecialchars($fetch_profile['phone']) : ''; ?>" placeholder="98XXXXXXXX">
+                  <div class="error-message" id="phone-error">Phone number must be 10 digits starting with 97/98!</div>
                </div>
                
                <div class="mb-3">
@@ -462,33 +802,6 @@ if(isset($_POST['submit'])){
                      <option value="other" <?= (isset($fetch_profile['gender']) && $fetch_profile['gender'] == 'other') ? 'selected' : ''; ?>>Other</option>
                      <option value="prefer_not_to_say" <?= (isset($fetch_profile['gender']) && $fetch_profile['gender'] == 'prefer_not_to_say') ? 'selected' : ''; ?>>Prefer not to say</option>
                   </select>
-               </div>
-               <?php endif; ?>
-            </div>
-            
-            <!-- Social Media Section -->
-            <div class="form-section">
-               <h3 class="section-title">Social Media</h3>
-               <p class="text-muted">Connect your social media accounts (optional)</p>
-               
-               <?php if($user->columnExists('facebook')): ?>
-               <div class="mb-3">
-                  <label for="facebook" class="form-label"><i class="fab fa-facebook"></i> Facebook</label>
-                  <input type="url" name="facebook" class="form-control" id="facebook" placeholder="https://facebook.com/username" value="<?= isset($fetch_profile['facebook']) ? htmlspecialchars($fetch_profile['facebook']) : ''; ?>">
-               </div>
-               <?php endif; ?>
-               
-               <?php if($user->columnExists('twitter')): ?>
-               <div class="mb-3">
-                  <label for="twitter" class="form-label"><i class="fab fa-twitter"></i> Twitter</label>
-                  <input type="url" name="twitter" class="form-control" id="twitter" placeholder="https://twitter.com/username" value="<?= isset($fetch_profile['twitter']) ? htmlspecialchars($fetch_profile['twitter']) : ''; ?>">
-               </div>
-               <?php endif; ?>
-               
-               <?php if($user->columnExists('instagram')): ?>
-               <div class="mb-3">
-                  <label for="instagram" class="form-label"><i class="fab fa-instagram"></i> Instagram</label>
-                  <input type="url" name="instagram" class="form-control" id="instagram" placeholder="https://instagram.com/username" value="<?= isset($fetch_profile['instagram']) ? htmlspecialchars($fetch_profile['instagram']) : ''; ?>">
                </div>
                <?php endif; ?>
             </div>
@@ -537,19 +850,64 @@ if(isset($_POST['submit'])){
                <div class="mb-3">
                   <label class="form-label">Login Activity</label>
                   <div class="alert alert-light">
-                     <i class="fas fa-clock"></i> Last login: <?= ($user->columnExists('last_login') && isset($fetch_profile['last_login'])) ? date('F j, Y \a\t g:i a', strtotime($fetch_profile['last_login'])) : 'Never logged in'; ?>
-                     <?php if($user->columnExists('last_login_ip') && isset($fetch_profile['last_login_ip'])): ?>
+                     <i class="fas fa-clock"></i> Last login: <?= ($user->columnExists('last_login') && isset($fetch_profile['last_login']) && !empty($fetch_profile['last_login'])) ? date('F j, Y \a\t g:i a', strtotime($fetch_profile['last_login'])) : 'Never logged in'; ?>
+                     <?php if($user->columnExists('last_login_ip') && isset($fetch_profile['last_login_ip']) && !empty($fetch_profile['last_login_ip'])): ?>
                         <br><i class="fas fa-network-wired"></i> IP: <?= htmlspecialchars($fetch_profile['last_login_ip']); ?>
                      <?php endif; ?>
                   </div>
-                  <a href="login_history.php" class="btn btn-sm btn-outline-primary">View login history</a>
+                  
+                  <?php if(!empty($login_history)): ?>
+                  <div class="mt-3">
+                     <h6>Recent Login History <span class="badge bg-secondary"><?= $total_logins ?> total logins</span></h6>
+                     <div class="login-history-table">
+                        <table class="table table-sm">
+                           <thead>
+                              <tr>
+                                 <th>Date & Time</th>
+                                 <th>Device</th>
+                                 <th>IP Address</th>
+                              </tr>
+                           </thead>
+                           <tbody>
+                              <?php foreach($login_history as $login): ?>
+                              <tr class="login-item">
+                                 <td><?= date('M j, g:i a', strtotime($login['login_time'])) ?></td>
+                                 <td>
+                                    <?php
+                                    $user_agent = $login['user_agent'];
+                                    $device_icon = 'desktop';
+                                    $device_type = 'Desktop';
+                                    if (preg_match('/mobile|android|iphone|ipad|ipod/i', $user_agent)) {
+                                        $device_icon = 'mobile-alt';
+                                        $device_type = 'Mobile';
+                                    } elseif (preg_match('/tablet|ipad/i', $user_agent)) {
+                                        $device_icon = 'tablet-alt';
+                                        $device_type = 'Tablet';
+                                    }
+                                    ?>
+                                    <i class="fas fa-<?= $device_icon ?> device-icon" title="<?= $device_type ?>"></i>
+                                 </td>
+                                 <td><span class="ip-address"><?= htmlspecialchars($login['ip_address']) ?></span></td>
+                              </tr>
+                              <?php endforeach; ?>
+                           </tbody>
+                        </table>
+                     </div>
+                  </div>
+                  <?php endif; ?>
+                  
+                  <div class="mt-2">
+                     <a href="login_history.php" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-history"></i> View full login history
+                     </a>
+                  </div>
                </div>
                
                <div class="mb-3">
                   <label class="form-label">Account Status</label>
                   <div class="alert alert-light">
                      <i class="fas fa-user-shield"></i> Account created: <?= ($user->columnExists('created_at') && isset($fetch_profile['created_at'])) ? date('F j, Y', strtotime($fetch_profile['created_at'])) : 'Unknown'; ?>
-                     <br><i class="fas fa-sync-alt"></i> Last updated: <?= ($user->columnExists('updated_at') && isset($fetch_profile['updated_at'])) ? date('F j, Y \a\t g:i a', strtotime($fetch_profile['updated_at'])) : 'Unknown'; ?>
+                     <br><i class="fas fa-sync-alt"></i> Last updated: <?= ($user->columnExists('updated_at') && isset($fetch_profile['updated_at']) && !empty($fetch_profile['updated_at'])) ? date('F j, Y \a\t g:i a', strtotime($fetch_profile['updated_at'])) : 'Unknown'; ?>
                   </div>
                </div>
             </div>
@@ -640,8 +998,89 @@ if(isset($_POST['submit'])){
       }
    });
    
+   // Name validation - only letters and spaces
+   document.getElementById('name').addEventListener('input', function() {
+      const name = this.value;
+      const nameError = document.getElementById('name-error');
+      
+      if (!/^[a-zA-Z ]*$/.test(name)) {
+         nameError.style.display = 'block';
+         this.classList.add('is-invalid');
+      } else {
+         nameError.style.display = 'none';
+         this.classList.remove('is-invalid');
+      }
+   });
+   
+   // Email validation with specific format
+   document.getElementById('email').addEventListener('input', function() {
+      const email = this.value;
+      const emailError = document.getElementById('email-error');
+      const emailPattern = /^\d{0,3}[A-Za-z]+[0-9]*@gmail\.com$/;
+      
+      if (!emailPattern.test(email)) {
+         emailError.style.display = 'block';
+         this.classList.add('is-invalid');
+      } else {
+         emailError.style.display = 'none';
+         this.classList.remove('is-invalid');
+      }
+   });
+   
+   // Phone validation and formatting
+   document.getElementById('phone').addEventListener('input', function(e) {
+      const phone = this.value.replace(/\D/g, '');
+      const phoneError = document.getElementById('phone-error');
+      
+      // Format phone number as user types
+      if (phone.length > 0) {
+         if (phone.startsWith('97') || phone.startsWith('98')) {
+            if (phone.length <= 10) {
+               this.value = phone;
+               phoneError.style.display = 'none';
+               this.classList.remove('is-invalid');
+            } else {
+               this.value = phone.substring(0, 10);
+            }
+         } else {
+            phoneError.style.display = 'block';
+            this.classList.add('is-invalid');
+         }
+      } else {
+         phoneError.style.display = 'none';
+         this.classList.remove('is-invalid');
+      }
+   });
+   
    // Form validation
-   document.querySelector('form').addEventListener('submit', function(e) {
+   document.getElementById('profile-form').addEventListener('submit', function(e) {
+      let isValid = true;
+      
+      // Name validation
+      const name = document.getElementById('name').value;
+      if (!/^[a-zA-Z ]*$/.test(name)) {
+         document.getElementById('name-error').style.display = 'block';
+         document.getElementById('name').classList.add('is-invalid');
+         isValid = false;
+      }
+      
+      // Email validation with specific format
+      const email = document.getElementById('email').value;
+      const emailPattern = /^\d{0,3}[A-Za-z]+[0-9]*@gmail\.com$/;
+      if (!emailPattern.test(email)) {
+         document.getElementById('email-error').style.display = 'block';
+         document.getElementById('email').classList.add('is-invalid');
+         isValid = false;
+      }
+      
+      // Phone validation
+      const phone = document.getElementById('phone').value;
+      if (phone && !/^(97|98)[0-9]{8}$/.test(phone)) {
+         document.getElementById('phone-error').style.display = 'block';
+         document.getElementById('phone').classList.add('is-invalid');
+         isValid = false;
+      }
+      
       const newPass = document.getElementById('new_pass').value;
       const cPass = document.getElementById('cpass').value;
       const oldPass = document.getElementById('old_pass').value;
@@ -677,6 +1116,11 @@ if(isset($_POST['submit'])){
             e.preventDefault();
             return;
          }
+      }
+      
+      if (!isValid) {
+         e.preventDefault();
+         alert('Please fix the validation errors before submitting.');
       }
    });
 </script>

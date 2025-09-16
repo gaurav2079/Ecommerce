@@ -10,6 +10,35 @@ if(isset($_SESSION['user_id'])){
    header('location:user_login.php');
 };
 
+// Function to generate and store OTP
+function generateOTP($conn, $user_id) {
+    $otp = rand(100000, 999999); // 6-digit OTP
+    $expiry_time = date('Y-m-d H:i:s', strtotime('+5 minutes')); // OTP valid for 5 minutes
+    
+    // Store OTP in database
+    $insert_otp = $conn->prepare("INSERT INTO `otp_verification` (user_id, otp_code, expiry_time) VALUES (?, ?, ?) 
+                                  ON DUPLICATE KEY UPDATE otp_code = ?, expiry_time = ?");
+    $insert_otp->execute([$user_id, $otp, $expiry_time, $otp, $expiry_time]);
+    
+    return $otp;
+}
+
+// Function to verify OTP
+function verifyOTP($conn, $user_id, $entered_otp) {
+    $current_time = date('Y-m-d H:i:s');
+    
+    $check_otp = $conn->prepare("SELECT * FROM `otp_verification` WHERE user_id = ? AND otp_code = ? AND expiry_time > ?");
+    $check_otp->execute([$user_id, $entered_otp, $current_time]);
+    
+    if($check_otp->rowCount() > 0) {
+        // Delete OTP after successful verification
+        $delete_otp = $conn->prepare("DELETE FROM `otp_verification` WHERE user_id = ?");
+        $delete_otp->execute([$user_id]);
+        return true;
+    }
+    return false;
+}
+
 // Function to place an order
 function placeOrder($conn, $user_id, $name, $number, $email, $method, $address, $total_products, $total_price) {
     $check_cart = $conn->prepare("SELECT * FROM `cart` WHERE user_id = ?");
@@ -65,33 +94,61 @@ if(isset($_POST['order'])){
 if(isset($_POST['esewa_payment'])){
     $esewa_username = $_POST['esewa_username'];
     $esewa_password = $_POST['esewa_password'];
+    $otp_code = $_POST['otp_code'];
     
     $valid_username = 'esewa_user';
     $valid_password = 'esewa123';
     
     if($esewa_username === $valid_username && $esewa_password === $valid_password){
-        // Get all form data from hidden inputs
-        $name = $_POST['name'];
-        $name = filter_var($name, FILTER_SANITIZE_STRING);
-        $number = $_POST['number'];
-        $number = filter_var($number, FILTER_SANITIZE_STRING);
-        $email = $_POST['email'];
-        $email = filter_var($email, FILTER_SANITIZE_STRING);
-        $address = $_POST['state'] . ' - '. $_POST['pin_code'];
-        $address = filter_var($address, FILTER_SANITIZE_STRING);
-        $total_products = $_POST['total_products'];
-        $total_price = $_POST['total_price'];
-        $method = 'esewa';
-        
-        if(placeOrder($conn, $user_id, $name, $number, $email, $method, $address, $total_products, $total_price)){
-            $message[] = 'Order placed successfully with Esewa!';
-            header('location:orders.php');
-            exit();
-        }else{
-            $message[] = 'Your cart is empty';
+        // Verify OTP
+        if(verifyOTP($conn, $user_id, $otp_code)) {
+            // Get all form data from hidden inputs
+            $name = $_POST['name'];
+            $name = filter_var($name, FILTER_SANITIZE_STRING);
+            $number = $_POST['number'];
+            $number = filter_var($number, FILTER_SANITIZE_STRING);
+            $email = $_POST['email'];
+            $email = filter_var($email, FILTER_SANITIZE_STRING);
+            $address = $_POST['state'] . ' - '. $_POST['pin_code'];
+            $address = filter_var($address, FILTER_SANITIZE_STRING);
+            $total_products = $_POST['total_products'];
+            $total_price = $_POST['total_price'];
+            $method = 'esewa';
+            
+            if(placeOrder($conn, $user_id, $name, $number, $email, $method, $address, $total_products, $total_price)){
+                $message[] = 'Order placed successfully with Esewa!';
+                header('location:orders.php');
+                exit();
+            }else{
+                $message[] = 'Your cart is empty';
+            }
+        } else {
+            $message[] = 'Invalid OTP. Please try again.';
         }
     } else {
         $message[] = 'Invalid Esewa credentials. Please try again.';
+    }
+}
+
+// Handle OTP request
+if(isset($_POST['request_otp'])){
+    $esewa_username = $_POST['esewa_username'];
+    $esewa_password = $_POST['esewa_password'];
+    
+    $valid_username = 'esewa_user';
+    $valid_password = 'esewa123';
+    
+    if($esewa_username === $valid_username && $esewa_password === $valid_password){
+        // Generate and send OTP
+        $otp = generateOTP($conn, $user_id);
+        
+        // In a real application, you would send this OTP via  email
+        // For demo purposes, we'll just return it in the response
+        echo json_encode(['status' => 'success', 'message' => 'OTP sent successfully', 'demo_otp' => $otp]);
+        exit();
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'Invalid Esewa credentials']);
+        exit();
     }
 }
 ?>
@@ -398,6 +455,51 @@ if(isset($_POST['esewa_payment'])){
          text-align: center;
       }
       
+      /* Additional styles for OTP section */
+      .otp-section {
+         display: none;
+         margin-top: 20px;
+         padding-top: 20px;
+         border-top: 1px solid var(--daraz-border);
+      }
+      
+      .otp-timer {
+         text-align: center;
+         font-size: 14px;
+         margin-top: 10px;
+         color: var(--daraz-orange);
+      }
+      
+      .resend-otp {
+         color: var(--daraz-orange);
+         cursor: pointer;
+         text-align: center;
+         margin-top: 10px;
+         font-size: 14px;
+      }
+      
+      .resend-otp.disabled {
+         color: var(--daraz-text);
+         cursor: not-allowed;
+      }
+      
+      .btn-request-otp {
+         background-color: #f0ad4e;
+         color: white;
+         border: none;
+         padding: 12px;
+         width: 100%;
+         border-radius: 3px;
+         cursor: pointer;
+         font-weight: 500;
+         font-size: 16px;
+         margin-top: 10px;
+      }
+      
+      .btn-request-otp:hover {
+         background-color: #ec971f;
+      }
+      
       @media (max-width: 768px) {
          .checkout-container {
             grid-template-columns: 1fr;
@@ -567,7 +669,7 @@ if(isset($_POST['esewa_payment'])){
          <img src="https://esewa.com.np/common/images/esewa_logo.png" alt="Esewa Logo">
       </div>
       
-      <form class="esewa-form" method="POST">
+      <form class="esewa-form" method="POST" id="esewaForm">
          <input type="hidden" name="total_price" value="<?= $grand_total; ?>">
          <input type="hidden" name="total_products" value="<?= isset($total_products) ? $total_products : ''; ?>">
          <input type="hidden" name="name" value="<?= isset($_POST['name']) ? $_POST['name'] : ''; ?>">
@@ -587,13 +689,34 @@ if(isset($_POST['esewa_payment'])){
          </div>
          
          <div class="form-group">
-            <label class="form-label">Amount to Pay</label>
-            <input type="text" class="form-control" value="₹<?= $grand_total; ?>" readonly>
+            <button type="button" id="requestOtpBtn" class="btn-request-otp">
+               REQUEST OTP
+            </button>
          </div>
          
-         <button type="submit" name="esewa_payment" class="btn-esewa">
-            PAY WITH ESEWA
-         </button>
+         <div class="otp-section" id="otpSection">
+            <div class="form-group">
+               <label class="form-label">Enter OTP</label>
+               <input type="text" name="otp_code" class="form-control" placeholder="Enter 6-digit OTP" maxlength="6" required>
+            </div>
+            
+            <div class="otp-timer" id="otpTimer">
+               OTP valid for: <span id="countdown">04:00</span>
+            </div>
+            
+            <div class="resend-otp" id="resendOtp">
+               Didn't receive OTP? Resend
+            </div>
+            
+            <div class="form-group">
+               <label class="form-label">Amount to Pay</label>
+               <input type="text" class="form-control" value="₹<?= $grand_total; ?>" readonly>
+            </div>
+            
+            <button type="submit" name="esewa_payment" class="btn-esewa">
+               VERIFY & PAY
+            </button>
+         </div>
          
          <div class="demo-credentials">
             <p><strong>Demo Credentials:</strong></p>
@@ -716,6 +839,97 @@ if(isset($_POST['esewa_payment'])){
          });
       });
       
+      // OTP functionality
+      const requestOtpBtn = document.getElementById('requestOtpBtn');
+      const otpSection = document.getElementById('otpSection');
+      const resendOtp = document.getElementById('resendOtp');
+      const otpTimer = document.getElementById('otpTimer');
+      const countdown = document.getElementById('countdown');
+      let otpCountdown;
+      let canResend = false;
+      
+      requestOtpBtn.addEventListener('click', function() {
+         const username = document.querySelector('#esewaModal input[name="esewa_username"]').value;
+         const password = document.querySelector('#esewaModal input[name="esewa_password"]').value;
+         
+         if(!username || !password) {
+            alert('Please enter your Esewa credentials first');
+            return;
+         }
+         
+         // Request OTP via AJAX
+         const formData = new FormData();
+         formData.append('request_otp', true);
+         formData.append('esewa_username', username);
+         formData.append('esewa_password', password);
+         
+         fetch('', {
+            method: 'POST',
+            body: formData
+         })
+         .then(response => response.json())
+         .then(data => {
+            if(data.status === 'success') {
+               // Show OTP section
+               otpSection.style.display = 'block';
+               requestOtpBtn.style.display = 'none';
+               
+               // Start countdown timer
+               startOtpCountdown();
+               
+               // Show demo OTP (for testing purposes)
+               alert('Demo OTP: ' + data.demo_otp + '\nIn a real application, this would be sent in essewa page.');
+            } else {
+               alert(data.message);
+            }
+         })
+         .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while requesting OTP');
+         });
+      });
+      
+      // Start OTP countdown timer
+      function startOtpCountdown() {
+         let timeLeft = 300; // 5 minutes in seconds
+         canResend = false;
+         resendOtp.classList.add('disabled');
+         
+         clearInterval(otpCountdown);
+         
+         otpCountdown = setInterval(function() {
+            timeLeft--;
+            
+            if(timeLeft <= 0) {
+               clearInterval(otpCountdown);
+               canResend = true;
+               resendOtp.classList.remove('disabled');
+               otpTimer.innerHTML = 'OTP expired';
+            } else {
+               const minutes = Math.floor(timeLeft / 60);
+               const seconds = timeLeft % 60;
+               countdown.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+         }, 1000);
+      }
+      
+      // Resend OTP
+      resendOtp.addEventListener('click', function() {
+         if(canResend) {
+            requestOtpBtn.click();
+         }
+      });
+      
+      // Esewa form submission
+      document.getElementById('esewaForm').addEventListener('submit', function(e) {
+         const otpInput = document.querySelector('input[name="otp_code"]');
+         
+         if(otpInput && !otpInput.value) {
+            e.preventDefault();
+            alert('Please enter the OTP');
+         }
+      });
+      
       // Esewa modal functionality
       const esewaRadio = document.querySelector('input[value="esewa"]');
       const esewaModal = document.getElementById('esewaModal');
@@ -748,11 +962,19 @@ if(isset($_POST['esewa_payment'])){
       
       closeBtn.addEventListener('click', function() {
          esewaModal.style.display = 'none';
+         // Reset OTP section
+         otpSection.style.display = 'none';
+         requestOtpBtn.style.display = 'block';
+         clearInterval(otpCountdown);
       });
       
       window.addEventListener('click', function(e) {
          if(e.target === esewaModal) {
             esewaModal.style.display = 'none';
+            // Reset OTP section
+            otpSection.style.display = 'none';
+            requestOtpBtn.style.display = 'block';
+            clearInterval(otpCountdown);
          }
       });
    });

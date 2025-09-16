@@ -84,6 +84,7 @@ class Dashboard {
             
             $this->monthly_data[$i] = array(
                 'month' => date('M', strtotime($start_date)),
+                'month_full' => date('F Y', strtotime($start_date)),
                 'orders' => $monthly_orders['count'] ?: 0,
                 'revenue' => $monthly_revenue['total'] ?: 0,
                 'products' => $monthly_products['count'] ?: 0,
@@ -201,6 +202,7 @@ class Dashboard {
                  background-color: #f5f7fa;
                  color: #333;
                  display: flex;
+                 flex-direction: column;
                  min-height: 100vh;
               }
               
@@ -447,6 +449,76 @@ class Dashboard {
                  background: var(--secondary-color);
               }
               
+              .month-selector {
+                 display: flex;
+                 justify-content: center;
+                 margin-bottom: 15px;
+                 gap: 10px;
+                 flex-wrap: wrap;
+              }
+              
+              .month-selector select {
+                 padding: 8px 15px;
+                 border-radius: 5px;
+                 border: 1px solid #ddd;
+                 background: white;
+                 font-size: 0.9rem;
+              }
+              
+              .month-selector button {
+                 padding: 8px 15px;
+                 background: var(--main-color);
+                 color: white;
+                 border: none;
+                 border-radius: 5px;
+                 cursor: pointer;
+                 transition: all 0.3s ease;
+              }
+              
+              .month-selector button:hover {
+                 background: var(--secondary-color);
+              }
+              
+              .month-data-display {
+                 margin-top: 15px;
+                 padding: 15px;
+                 background: #f9f9f9;
+                 border-radius: 8px;
+                 display: none;
+              }
+              
+              .month-data-display.active {
+                 display: block;
+                 animation: fadeIn 0.5s ease-out;
+              }
+              
+              .month-data-grid {
+                 display: grid;
+                 grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                 gap: 15px;
+                 margin-top: 10px;
+              }
+              
+              .month-data-item {
+                 text-align: center;
+                 padding: 10px;
+                 background: white;
+                 border-radius: 8px;
+                 box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+              }
+              
+              .month-data-item h4 {
+                 font-size: 1.1rem;
+                 color: var(--main-color);
+                 margin-bottom: 5px;
+              }
+              
+              .month-data-item p {
+                 font-size: 1.3rem;
+                 font-weight: bold;
+                 color: #333;
+              }
+              
               .chart-holder {
                  width: 100%;
                  height: 300px;
@@ -457,6 +529,25 @@ class Dashboard {
                  margin: 10px 0;
                  font-size: 1rem;
                  color: #666;
+              }
+              
+              /* Footer Styles */
+              footer {
+                 background-color: var(--dark-color);
+                 color: white;
+                 text-align: center;
+                 padding: 20px;
+                 margin-left: var(--sidebar-width);
+                 transition: all 0.3s;
+              }
+              
+              footer p {
+                 margin: 5px 0;
+                 font-size: 0.9rem;
+              }
+              
+              footer p:first-child {
+                 font-weight: bold;
               }
               
               /* Responsive styles */
@@ -485,6 +576,10 @@ class Dashboard {
                  .main-content {
                     margin-left: 80px;
                  }
+                 
+                 footer {
+                    margin-left: 80px;
+                 }
               }
               
               @media (max-width: 768px) {
@@ -494,6 +589,15 @@ class Dashboard {
                  
                  .charts-wrapper {
                     flex-direction: column;
+                 }
+                 
+                 .month-data-grid {
+                    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                 }
+                 
+                 footer {
+                    margin-left: 0;
+                    padding: 15px;
                  }
               }
               
@@ -606,6 +710,45 @@ class Dashboard {
               <div class="charts-wrapper">
                  <div class="chart-container">
                     <div class="chart-title">Monthly Analytics Nepal~Store</div>
+                    
+                    <!-- Month Selector -->
+                    <div class="month-selector">
+                       <select id="month-select">
+                          <option value="all">All Months</option>
+                          <?php foreach($monthly_data as $month): ?>
+                             <option value="<?= $month['month']; ?>"><?= $month['month_full']; ?></option>
+                          <?php endforeach; ?>
+                       </select>
+                       <button id="view-month-data">View Month Data</button>
+                    </div>
+                    
+                    <!-- Month Data Display -->
+                    <div class="month-data-display" id="month-data-display">
+                       <h3 id="selected-month-title" style="text-align: center; margin-bottom: 15px;"></h3>
+                       <div class="month-data-grid">
+                          <div class="month-data-item">
+                             <h4>Orders</h4>
+                             <p id="month-orders">0</p>
+                          </div>
+                          <div class="month-data-item">
+                             <h4>Revenue</h4>
+                             <p id="month-revenue">रु0</p>
+                          </div>
+                          <div class="month-data-item">
+                             <h4>Products</h4>
+                             <p id="month-products">0</p>
+                          </div>
+                          <div class="month-data-item">
+                             <h4>Users</h4>
+                             <p id="month-users">0</p>
+                          </div>
+                          <div class="month-data-item">
+                             <h4>Messages</h4>
+                             <p id="month-messages">0</p>
+                          </div>
+                       </div>
+                    </div>
+                    
                     <div class="chart-controls">
                        <button class="active" data-type="orders">Orders</button>
                        <button data-type="revenue">Revenue</button>
@@ -627,6 +770,12 @@ class Dashboard {
               </div>
            </section>
         </div>
+
+        <!-- Footer -->
+        <footer>
+            <p>&copy; 2025 Nepal Store. All rights reserved.</p>
+            <p>Contact: info@nepalstore.com</p>
+        </footer>
 
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <script>
@@ -674,6 +823,7 @@ class Dashboard {
               // Monthly data
               const monthlyData = {
                  labels: <?php echo json_encode(array_column($monthly_data, 'month')); ?>,
+                 full_labels: <?php echo json_encode(array_column($monthly_data, 'month_full')); ?>,
                  orders: <?php echo json_encode(array_column($monthly_data, 'orders')); ?>,
                  revenue: <?php echo json_encode(array_column($monthly_data, 'revenue')); ?>,
                  products: <?php echo json_encode(array_column($monthly_data, 'products')); ?>,
@@ -681,88 +831,159 @@ class Dashboard {
                  messages: <?php echo json_encode(array_column($monthly_data, 'messages')); ?>
               };
 
+              // Month data display functionality
+              const monthSelect = document.getElementById('month-select');
+              const viewMonthBtn = document.getElementById('view-month-data');
+              const monthDataDisplay = document.getElementById('month-data-display');
+              const monthTitle = document.getElementById('selected-month-title');
+              
+              viewMonthBtn.addEventListener('click', function() {
+                 const selectedMonth = monthSelect.value;
+                 if (!selectedMonth) {
+                    alert('Please select a month first');
+                    return;
+                 }
+                 
+                 if (selectedMonth === 'all') {
+                    // Reset to show all data
+                    updateBarChart(monthlyData.labels, monthlyData.orders, monthlyData.revenue, 
+                                 monthlyData.products, monthlyData.users, monthlyData.messages);
+                    monthDataDisplay.classList.remove('active');
+                    return;
+                 }
+                 
+                 const monthIndex = monthlyData.labels.indexOf(selectedMonth);
+                 if (monthIndex === -1) return;
+                 
+                 // Update the display with selected month data
+                 monthTitle.textContent = monthlyData.full_labels[monthIndex];
+                 document.getElementById('month-orders').textContent = monthlyData.orders[monthIndex].toLocaleString();
+                 document.getElementById('month-revenue').textContent = 'रु' + monthlyData.revenue[monthIndex].toLocaleString();
+                 document.getElementById('month-products').textContent = monthlyData.products[monthIndex].toLocaleString();
+                 document.getElementById('month-users').textContent = monthlyData.users[monthIndex].toLocaleString();
+                 document.getElementById('month-messages').textContent = monthlyData.messages[monthIndex].toLocaleString();
+                 
+                 // Show the data display
+                 monthDataDisplay.classList.add('active');
+                 
+                 // Update the bar chart to show only the selected month
+                 updateBarChart(
+                    [monthlyData.labels[monthIndex]], 
+                    [monthlyData.orders[monthIndex]], 
+                    [monthlyData.revenue[monthIndex]], 
+                    [monthlyData.products[monthIndex]], 
+                    [monthlyData.users[monthIndex]], 
+                    [monthlyData.messages[monthIndex]]
+                 );
+              });
+
               // Bar Chart
-              const barCtx = document.getElementById('barChart').getContext('2d');
-              const barChart = new Chart(barCtx, {
-                 type: 'bar',
-                 data: {
-                    labels: monthlyData.labels,
-                    datasets: [
-                       {
-                          label: 'Orders',
-                          data: monthlyData.orders,
-                          backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                          borderColor: 'rgba(54, 162, 235, 1)',
-                          borderWidth: 1,
-                          hidden: false
-                       },
-                       {
-                          label: 'Revenue (रु)',
-                          data: monthlyData.revenue,
-                          backgroundColor: 'rgba(75, 192, 192, 0.7)',
-                          borderColor: 'rgba(75, 192, 192, 1)',
-                          borderWidth: 1,
-                          hidden: true
-                       },
-                       {
-                          label: 'Products Added',
-                          data: monthlyData.products,
-                          backgroundColor: 'rgba(255, 206, 86, 0.7)',
-                          borderColor: 'rgba(255, 206, 86, 1)',
-                          borderWidth: 1,
-                          hidden: true
-                       },
-                       {
-                          label: 'User Registrations',
-                          data: monthlyData.users,
-                          backgroundColor: 'rgba(153, 102, 255, 0.7)',
-                          borderColor: 'rgba(153, 102, 255, 1)',
-                          borderWidth: 1,
-                          hidden: true
-                       },
-                       {
-                          label: 'Messages',
-                          data: monthlyData.messages,
-                          backgroundColor: 'rgba(255, 159, 64, 0.7)',
-                          borderColor: 'rgba(255, 159, 64, 1)',
-                          borderWidth: 1,
-                          hidden: true
-                       }
-                    ]
-                 },
-                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                       legend: {
-                          position: 'top',
-                       },
-                       tooltip: {
-                          callbacks: {
-                             label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label.includes('Revenue')) {
-                                   label += ': रु' + context.parsed.y.toLocaleString();
-                                } else {
-                                   label += ': ' + context.parsed.y.toLocaleString();
+              let barChart;
+              function initBarChart(labels, orders, revenue, products, users, messages) {
+                 const barCtx = document.getElementById('barChart').getContext('2d');
+                 barChart = new Chart(barCtx, {
+                    type: 'bar',
+                    data: {
+                       labels: labels,
+                       datasets: [
+                          {
+                             label: 'Orders',
+                             data: orders,
+                             backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                             borderColor: 'rgba(54, 162, 235, 1)',
+                             borderWidth: 1,
+                             hidden: false
+                          },
+                          {
+                             label: 'Revenue (रु)',
+                             data: revenue,
+                             backgroundColor: 'rgba(75, 192, 192, 0.7)',
+                             borderColor: 'rgba(75, 192, 192, 1)',
+                             borderWidth: 1,
+                             hidden: true
+                          },
+                          {
+                             label: 'Products Added',
+                             data: products,
+                             backgroundColor: 'rgba(255, 206, 86, 0.7)',
+                             borderColor: 'rgba(255, 206, 86, 1)',
+                             borderWidth: 1,
+                             hidden: true
+                          },
+                          {
+                             label: 'User Registrations',
+                             data: users,
+                             backgroundColor: 'rgba(153, 102, 255, 0.7)',
+                             borderColor: 'rgba(153, 102, 255, 1)',
+                             borderWidth: 1,
+                             hidden: true
+                          },
+                          {
+                             label: 'Messages',
+                             data: messages,
+                             backgroundColor: 'rgba(255, 159, 64, 0.7)',
+                             borderColor: 'rgba(255, 159, 64, 1)',
+                             borderWidth: 1,
+                             hidden: true
+                          }
+                       ]
+                    },
+                    options: {
+                       responsive: true,
+                       maintainAspectRatio: false,
+                       plugins: {
+                          legend: {
+                             position: 'top',
+                          },
+                          tooltip: {
+                             callbacks: {
+                                label: function(context) {
+                                   let label = context.dataset.label || '';
+                                   if (label.includes('Revenue')) {
+                                      label += ': रु' + context.parsed.y.toLocaleString();
+                                   } else {
+                                      label += ': ' + context.parsed.y.toLocaleString();
+                                   }
+                                   return label;
                                 }
-                                return label;
                              }
                           }
-                       }
-                    },
-                    scales: {
-                       y: {
-                          beginAtZero: true,
-                          ticks: {
-                             callback: function(value) {
-                                return Number(value).toLocaleString();
+                       },
+                       scales: {
+                          y: {
+                             beginAtZero: true,
+                             ticks: {
+                                callback: function(value) {
+                                   return Number(value).toLocaleString();
+                                }
                              }
                           }
                        }
                     }
+                 });
+              }
+              
+              // Function to update bar chart data
+              function updateBarChart(labels, orders, revenue, products, users, messages) {
+                 if (barChart) {
+                    barChart.data.labels = labels;
+                    barChart.data.datasets[0].data = orders;
+                    barChart.data.datasets[1].data = revenue;
+                    barChart.data.datasets[2].data = products;
+                    barChart.data.datasets[3].data = users;
+                    barChart.data.datasets[4].data = messages;
+                    barChart.update();
                  }
-              });
+              }
+              // Initialize the bar chart with all data
+              initBarChart(
+                 monthlyData.labels, 
+                 monthlyData.orders, 
+                 monthlyData.revenue, 
+                 monthlyData.products, 
+                 monthlyData.users, 
+                 monthlyData.messages
+              );
 
               // Chart filter buttons
               document.querySelectorAll('.chart-controls button').forEach(button => {

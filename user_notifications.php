@@ -478,9 +478,7 @@ unset($_SESSION['message']);
         <div class="filter-buttons mb-4">
             <button class="btn btn-outline-primary active filter-btn" data-filter="all">All</button>
             <button class="btn btn-outline-primary filter-btn" data-filter="unread">Unread</button>
-            <button class="btn btn-outline-primary filter-btn" data-filter="order">Order Updates</button>
-            <button class="btn btn-outline-warning filter-btn" data-filter="promotion">Promotions</button>
-            <button class="btn btn-outline-success filter-btn" data-filter="system">System</button>
+    
         </div>
 
         <!-- Notifications List -->

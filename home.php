@@ -201,7 +201,7 @@ include 'components/wishlist_cart.php';
       
       /* Home Section */
       .home-bg {
-         background: linear-gradient(135deg, #3a0ca3, #4361ee, #4cc9f0);
+         background: linear-gradient(135deg, #d3e3eaff, #4361ee, #4cc9f0);
          border-radius: 0 0 30px 30px;
          box-shadow: 0 10px 30px rgba(58, 12, 163, 0.2);
          overflow: hidden;
@@ -240,17 +240,17 @@ include 'components/wishlist_cart.php';
       
       .home .slide .content {
          flex: 1;
-         background: rgba(255, 255, 255, 0.15);
+         background: rgba(68, 151, 48, 0.15);
          backdrop-filter: blur(10px);
          border-radius: 20px;
          padding: 2rem;
-         border: 1px solid rgba(255, 255, 255, 0.2);
+         border: 1px solid rgba(10, 6, 6, 0.2);
          animation: fadeInUp 1s ease;
       }
       
       .home .slide .content span {
          background: var(--accent);
-         color: white;
+         color: blue;
          padding: 0.5rem 1.5rem;
          border-radius: 50px;
          display: inline-block;
@@ -303,7 +303,7 @@ include 'components/wishlist_cart.php';
       
       .category-slider .slide:hover {
          transform: translateY(-10px);
-         box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+         box-shadow: 0 10px 20px rgba(63, 22, 22, 0.15);
       }
       
       .category-slider .slide img {

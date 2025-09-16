@@ -120,6 +120,38 @@ class UserNotificationManager {
 }
 
 /**
+ * ImageManager class for handling profile images
+ */
+class ImageManager {
+    private $upload_path = 'uploaded_files/';
+    
+    public function getProfileImage($user_data) {
+        // Check if user has a profile image
+        if (!empty($user_data['profile_pic'])) {
+            $image_path = $this->upload_path . $user_data['profile_pic'];
+            if (file_exists($image_path)) {
+                return $image_path;
+            }
+        }
+        
+        // Return default image or initials avatar
+        return false;
+    }
+    
+    public function displayProfileImage($user_data, $size = '40px') {
+        $image_path = $this->getProfileImage($user_data);
+        
+        if ($image_path) {
+            return '<img src="' . $image_path . '" style="width: ' . $size . '; height: ' . $size . '; border-radius: 50%; object-fit: cover;">';
+        } else {
+            // Fallback to initials avatar
+            return '<div class="avatar" style="width: ' . $size . '; height: ' . $size . ';">' . 
+                   substr($user_data["name"], 0, 1) . '</div>';
+        }
+    }
+}
+
+/**
  * UserManager class for handling user-related operations
  */
 class UserManager {
@@ -208,11 +240,13 @@ class HeaderRenderer {
     private $messageManager;
     private $notificationManager;
     private $userManager;
+    private $imageManager;
     
-    public function __construct($messageManager, $notificationManager, $userManager) {
+    public function __construct($messageManager, $notificationManager, $userManager, $imageManager) {
         $this->messageManager = $messageManager;
         $this->notificationManager = $notificationManager;
         $this->userManager = $userManager;
+        $this->imageManager = $imageManager;
     }
     
     public function renderMessages() {
@@ -242,23 +276,16 @@ class HeaderRenderer {
             $recent_notifications = $this->notificationManager->getRecentNotifications($this->userManager->getUserId(), 5);
             
             // Add sample notifications only if they don't exist
-            if (empty($recent_notifications)) {
-                $welcome_message = "Welcome to Nepal Store! Enjoy your shopping experience.";
-                $order_message = "Your order #12345 has been confirmed and is being processed.";
-                
-                // Check if notifications already exist before adding them
-                if (!$this->notificationManager->hasNotification($this->userManager->getUserId(), $welcome_message)) {
-                    $this->notificationManager->addNotification($this->userManager->getUserId(), $welcome_message, 'info');
-                }
-                
-                if (!$this->notificationManager->hasNotification($this->userManager->getUserId(), $order_message)) {
-                    $this->notificationManager->addNotification($this->userManager->getUserId(), $order_message, 'success');
-                }
-                
-                // Refresh the notifications
-                $recent_notifications = $this->notificationManager->getRecentNotifications($this->userManager->getUserId(), 5);
-                $unread_count = $this->notificationManager->getUnreadCount($this->userManager->getUserId());
+            $welcome_message = "Welcome to Nepal Store! Enjoy your shopping experience.";
+            
+            // Check if notifications already exist before adding them
+            if (!$this->notificationManager->hasNotification($this->userManager->getUserId(), $welcome_message)) {
+                $this->notificationManager->addNotification($this->userManager->getUserId(), $welcome_message, 'info');
             }
+            
+            // Refresh the notifications
+            $recent_notifications = $this->notificationManager->getRecentNotifications($this->userManager->getUserId(), 5);
+            $unread_count = $this->notificationManager->getUnreadCount($this->userManager->getUserId());
         }
         
         $total_wishlist_counts = $this->userManager->getWishlistCount();
@@ -298,7 +325,14 @@ class HeaderRenderer {
                             <span class="badge"><?= $unread_count ?></span>
                         <?php endif; ?>
                     </a>
-                    <div id="user-btn" class="fas fa-user user-icon"></div>
+                    <div id="user-btn" class="user-profile-icon">
+                        <?php if ($this->userManager->isLoggedIn()): 
+                            $user_data = $this->userManager->getUserData();
+                            echo $this->imageManager->displayProfileImage($user_data, '40px');
+                        else: ?>
+                            <i class="fas fa-user user-icon"></i>
+                        <?php endif; ?>
+                    </div>
                 </div>
 
                 <div class="profile-card">
@@ -306,9 +340,7 @@ class HeaderRenderer {
                         $user_data = $this->userManager->getUserData();
                     ?>
                     <div class="profile-header">
-                        <div class="avatar">
-                            <?= substr($user_data["name"], 0, 1); ?>
-                        </div>
+                        <?php echo $this->imageManager->displayProfileImage($user_data, '50px'); ?>
                         <p class="username"><?= $user_data["name"]; ?></p>
                     </div>
                     <a href="update_user.php" class="profile-btn"><i class="fas fa-user-edit"></i> Update Profile</a>
@@ -347,7 +379,8 @@ class HeaderRenderer {
 $messageManager = MessageManager::getInstance();
 $notificationManager = new UserNotificationManager($conn);
 $userManager = new UserManager($conn);
-$headerRenderer = new HeaderRenderer($messageManager, $notificationManager, $userManager);
+$imageManager = new ImageManager();
+$headerRenderer = new HeaderRenderer($messageManager, $notificationManager, $userManager, $imageManager);
 
 // Global function for adding messages (backward compatibility)
 function addMessage($text, $type = 'info') {
@@ -523,16 +556,21 @@ function addMessage($text, $type = 'info') {
         font-size: 0.7rem;
     }
     
-    .user-icon {
+    .user-profile-icon {
         cursor: pointer;
         transition: all 0.3s;
-        font-size: 1.2rem;
-        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
     
-    .user-icon:hover {
-        color: #f39c12;
+    .user-profile-icon:hover {
         transform: scale(1.1);
+    }
+    
+    .user-icon {
+        color: white;
+        font-size: 1.2rem;
     }
     
     .profile-card {
@@ -564,8 +602,6 @@ function addMessage($text, $type = 'info') {
     }
     
     .avatar {
-        width: 40px;
-        height: 40px;
         background: #3498db;
         color: white;
         border-radius: 50%;
@@ -760,7 +796,7 @@ function addMessage($text, $type = 'info') {
         
         // Close dropdowns when clicking outside
         document.addEventListener('click', function(e) {
-            if (!e.target.closest('.user-icon') && !e.target.closest('.profile-card')) {
+            if (!e.target.closest('.user-profile-icon') && !e.target.closest('.profile-card')) {
                 if (profileCard) profileCard.classList.remove('active');
             }
         });

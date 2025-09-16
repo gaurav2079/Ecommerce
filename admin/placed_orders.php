@@ -88,7 +88,7 @@ class OrderManager {
             
             switch($payment_status) {
                 case 'completed':
-                    $message = "Your order #{$order_id} has been approved and is now being processed!";
+                    $message = "Your order #{$order_id} has been approved and is now being processed you get it soon!";
                     $type = "success";
                     break;
                 case 'pending':
@@ -347,12 +347,7 @@ if(!empty($messages)){
    <div class="container">
       <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap">
          <h1 class="heading">Placed Orders</h1>
-         <form class="search-box" method="GET" action="">
-            <div class="input-group">
-               <input type="text" class="form-control" placeholder="Search orders..." name="search" value="<?= htmlspecialchars($search) ?>">
-               <button class="btn btn-primary" type="submit">Search</button>
-            </div>
-         </form>
+         
       </div>
 
       <?php

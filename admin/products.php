@@ -367,7 +367,6 @@ $detailsValue = $_POST['details'] ?? '';
       body {
          background-color: #f5f7fa;
          color: var(--dark);
-         padding-top: 70px; /* Account for fixed header */
       }
 
       .message {
