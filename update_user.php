@@ -453,16 +453,17 @@ class User {
             $mail = new PHPMailer(true);
             
             // Server settings
+      
             $mail->isSMTP();
-            $mail->Host       = 'smtp.gmail.com'; // Set your SMTP server
+            $mail->Host       = 'smtp.gmail.com';
             $mail->SMTPAuth   = true;
-            $mail->Username   = 'your-email@gmail.com'; // SMTP username
-            $mail->Password   = 'your-app-password'; // SMTP password (use app password for Gmail)
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+            $mail->Username   = 'kandelgaurav04@gmail.com';
+            $mail->Password   = 'xmnfszxvelzuettu';
+            $mail->SMTPSecure = 'tls';
             $mail->Port       = 587;
             
             // Recipients
-            $mail->setFrom('noreply@yourdomain.com', 'Nepal Store');
+            $mail->setFrom('Nepal~Store@gmail.com', 'Nepal~Store Support');
             $mail->addAddress($email, $name);
             
             // Content
@@ -481,7 +482,7 @@ class User {
                 </html>
             ";
             
-            $mail->AltBody = "Hello $name,\n\nYour password has been successfully changed.\n\nIf you didn't make this change, please contact support immediately.";
+            $mail->AltBody = "Hello $name,\n\nYour password has been successfully changed.\n\nIf you didn't make this change, please contact support immediately.\n\nContact no: 9840245415";
             
             $mail->send();
             return true;

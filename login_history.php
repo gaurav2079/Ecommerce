@@ -413,7 +413,7 @@ $last_login = $loginHistory->getLastLogin();
         }
         .activity-login {
             background-color: #e3f2fd;
-            color: #1976d2;
+            color: #8bd219ff;
         }
         .activity-profile {
             background-color: #e8f5e9;
@@ -428,7 +428,7 @@ $last_login = $loginHistory->getLastLogin();
             color: #d32f2f;
         }
         .nav-pills .nav-link.active {
-            background-color: #3498db;
+            background-color: #0596f7ff;
         }
         .tab-content {
             padding: 20px 0;
@@ -510,7 +510,7 @@ $last_login = $loginHistory->getLastLogin();
             color: #95a5a6;
         }
         .activity-login .timeline-icon {
-            background-color: #3498db;
+            background-color: #6cdb34ff;
         }
         .activity-profile .timeline-icon {
             background-color: #2ecc71;
@@ -574,8 +574,8 @@ $last_login = $loginHistory->getLastLogin();
                             <div class="history-count">Total records: <?php echo $history_count; ?></div>
                         </div>
                         <?php if($history_count > 0): ?>
-                        <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#deleteHistoryModal">
-                            <i class="fas fa-trash me-1"></i> Clear History
+                        <button type="button" style="color:white"class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#deleteHistoryModal">
+                            <i class="fas fa-trash me-1" style="color:white"></i> Clear History
                         </button>
                         <?php endif; ?>
                     </div>

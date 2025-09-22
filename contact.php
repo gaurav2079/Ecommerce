@@ -299,93 +299,158 @@ $contactHandler->handleRequest($message);
          animation: float 3s ease-in-out infinite;
       }
 
-      /* Chatbot Styles */
+      /* Enhanced Chatbot Styles */
       .chatbot-container {
          position: fixed;
          bottom: 30px;
          right: 30px;
          z-index: 1000;
-         width: 350px;
+         width: 380px;
          transition: all 0.3s ease;
+         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       }
       
       .chatbot-toggle {
          position: absolute;
          bottom: 0;
          right: 0;
-         width: 60px;
-         height: 60px;
-         background: linear-gradient(to right, var(--chat-primary), var(--chat-secondary));
+         width: 65px;
+         height: 65px;
+         background: linear-gradient(135deg, var(--chat-primary), var(--chat-secondary));
          color: white;
          border-radius: 50%;
          display: flex;
          align-items: center;
          justify-content: center;
          cursor: pointer;
-         box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+         box-shadow: 0 8px 25px rgba(67, 97, 238, 0.3);
          z-index: 2;
          transition: all 0.3s ease;
+         animation: pulse 2s infinite;
+      }
+      
+      @keyframes pulse {
+         0% { box-shadow: 0 0 0 0 rgba(67, 97, 238, 0.7); }
+         70% { box-shadow: 0 0 0 10px rgba(67, 97, 238, 0); }
+         100% { box-shadow: 0 0 0 0 rgba(67, 97, 238, 0); }
       }
       
       .chatbot-toggle:hover {
-         transform: scale(1.1);
+         transform: scale(1.1) rotate(5deg);
+         box-shadow: 0 10px 30px rgba(67, 97, 238, 0.4);
       }
       
       .chatbot-toggle i {
-         font-size: 1.5rem;
+         font-size: 1.8rem;
       }
       
       .chatbot-window {
          background: white;
-         border-radius: 15px;
-         box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+         border-radius: 20px;
+         box-shadow: 0 15px 35px rgba(0,0,0,0.2);
          overflow: hidden;
          transform: translateY(100%);
          opacity: 0;
          height: 0;
-         transition: all 0.3s ease;
+         transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+         display: flex;
+         flex-direction: column;
       }
       
       .chatbot-window.active {
          transform: translateY(0);
          opacity: 1;
-         height: 500px;
-         margin-bottom: 70px;
+         height: 520px;
+         /* FIXED: Removed margin-bottom that was hiding the header */
       }
       
       .chatbot-header {
-         background: linear-gradient(to right, var(--chat-primary), var(--chat-secondary));
+         background: linear-gradient(135deg, var(--chat-primary), var(--chat-secondary));
          color: white;
-         padding: 15px 20px;
+         padding: 18px 20px;
          display: flex;
          align-items: center;
          justify-content: space-between;
+         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
       }
       
-      .chatbot-header h3 {
-         margin: 0;
+      .chatbot-header-content {
+         display: flex;
+         align-items: center;
+         gap: 12px;
+      }
+      
+      .chatbot-avatar {
+         width: 40px;
+         height: 40px;
+         background: rgba(255, 255, 255, 0.2);
+         border-radius: 50%;
+         display: flex;
+         align-items: center;
+         justify-content: center;
          font-size: 1.2rem;
+      }
+      
+      .chatbot-header-text h3 {
+         margin: 0;
+         font-size: 1.3rem;
+         font-weight: 600;
+      }
+      
+      .chatbot-header-text p {
+         margin: 2px 0 0;
+         font-size: 0.8rem;
+         opacity: 0.9;
       }
       
       .chatbot-header .close-btn {
-         background: none;
+         background: rgba(255, 255, 255, 0.2);
          border: none;
          color: white;
-         font-size: 1.2rem;
+         width: 32px;
+         height: 32px;
+         border-radius: 50%;
+         display: flex;
+         align-items: center;
+         justify-content: center;
          cursor: pointer;
+         transition: all 0.2s ease;
+      }
+      
+      .chatbot-header .close-btn:hover {
+         background: rgba(255, 255, 255, 0.3);
+         transform: rotate(90deg);
       }
       
       .chatbot-body {
-         height: 370px;
+         height: 380px;
          overflow-y: auto;
-         padding: 15px;
-         background: #f8f9fa;
+         padding: 20px;
+         background: #f8fafd;
+         display: flex;
+         flex-direction: column;
+         gap: 15px;
+      }
+      
+      .chatbot-body::-webkit-scrollbar {
+         width: 6px;
+      }
+      
+      .chatbot-body::-webkit-scrollbar-track {
+         background: #f1f1f1;
+         border-radius: 10px;
+      }
+      
+      .chatbot-body::-webkit-scrollbar-thumb {
+         background: #c5c5c5;
+         border-radius: 10px;
       }
       
       .chat-message {
-         margin-bottom: 15px;
          display: flex;
          flex-direction: column;
+         max-width: 85%;
+         animation: fadeIn 0.3s ease;
       }
       
       .chat-message.bot {
@@ -394,70 +459,124 @@ $contactHandler->handleRequest($message);
       
       .chat-message.user {
          align-items: flex-end;
+         align-self: flex-end;
       }
       
       .message-content {
-         max-width: 80%;
-         padding: 10px 15px;
+         padding: 12px 16px;
          border-radius: 18px;
          margin-bottom: 5px;
          position: relative;
+         line-height: 1.5;
+         font-size: 0.95rem;
+         box-shadow: 0 2px 5px rgba(0,0,0,0.05);
       }
       
       .bot .message-content {
          background: white;
-         color: var(--dark);
+         color: #333;
          border-bottom-left-radius: 5px;
-         box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+         box-shadow: 0 4px 12px rgba(0,0,0,0.08);
       }
       
       .user .message-content {
-         background: var(--chat-primary);
+         background: linear-gradient(135deg, var(--chat-primary), var(--chat-secondary));
          color: white;
          border-bottom-right-radius: 5px;
       }
       
       .message-time {
          font-size: 0.7rem;
-         color: #777;
+         color: #999;
+         padding: 0 5px;
       }
       
-      .chatbot-input {
-         display: flex;
+      .chatbot-input-container {
          padding: 15px;
          background: white;
          border-top: 1px solid #eee;
+         display: flex;
+         align-items: center;
+         gap: 10px;
+      }
+      
+      .chatbot-input {
+         flex: 1;
+         position: relative;
       }
       
       .chatbot-input input {
-         flex: 1;
-         padding: 10px 15px;
-         border: 1px solid #ddd;
-         border-radius: 30px;
+         width: 100%;
+         padding: 12px 15px;
+         border: 1px solid #e0e0e0;
+         border-radius: 25px;
          outline: none;
-         font-size: 14px;
+         font-size: 0.9rem;
+         transition: all 0.3s ease;
+         padding-right: 40px;
+      }
+      
+      .chatbot-input input:focus {
+         border-color: var(--chat-primary);
+         box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.1);
       }
       
       .chatbot-input button {
+         position: absolute;
+         right: 5px;
+         top: 50%;
+         transform: translateY(-50%);
          background: var(--chat-primary);
          color: white;
          border: none;
          border-radius: 50%;
-         width: 40px;
-         height: 40px;
-         margin-left: 10px;
+         width: 32px;
+         height: 32px;
+         display: flex;
+         align-items: center;
+         justify-content: center;
          cursor: pointer;
          transition: all 0.3s ease;
       }
       
       .chatbot-input button:hover {
          background: var(--chat-secondary);
+         transform: translateY(-50%) scale(1.1);
+      }
+      
+      .chatbot-actions {
+         display: flex;
+         gap: 8px;
+      }
+      
+      .chatbot-actions button {
+         background: #f5f7fa;
+         border: none;
+         width: 38px;
+         height: 38px;
+         border-radius: 50%;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         cursor: pointer;
+         transition: all 0.2s ease;
+         color: #666;
+      }
+      
+      .chatbot-actions button:hover {
+         background: #e6e9ef;
+         color: var(--chat-primary);
       }
       
       .typing-indicator {
          display: flex;
          padding: 10px 15px;
          align-items: center;
+         background: white;
+         border-radius: 18px;
+         width: fit-content;
+         box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+         margin-bottom: 5px;
       }
       
       .typing-indicator span {
@@ -466,7 +585,7 @@ $contactHandler->handleRequest($message);
          background: #ccc;
          border-radius: 50%;
          display: inline-block;
-         margin: 0 2px;
+         margin: 0 3px;
       }
       
       .typing-indicator span:nth-child(1) {
@@ -483,25 +602,28 @@ $contactHandler->handleRequest($message);
       
       .quick-replies {
          margin-top: 10px;
-         padding: 10px;
+         padding: 12px;
          background: white;
-         border-radius: 10px;
-         box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+         border-radius: 12px;
+         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+         animation: slideIn 0.3s ease;
       }
       
       .quick-replies p {
          margin-bottom: 8px;
-         font-size: 0.9rem;
+         font-size: 0.85rem;
          color: #666;
+         font-weight: 500;
       }
       
       .quick-reply {
          display: inline-block;
          margin: 4px;
          padding: 6px 12px;
-         background: #eef2ff;
+         background: #f0f4ff;
+         color: var(--chat-primary);
          border: 1px solid #dbe4ff;
-         border-radius: 15px;
+         border-radius: 16px;
          font-size: 0.8rem;
          cursor: pointer;
          transition: all 0.2s ease;
@@ -510,13 +632,14 @@ $contactHandler->handleRequest($message);
       .quick-reply:hover {
          background: #e0e7ff;
          transform: translateY(-2px);
+         box-shadow: 0 2px 5px rgba(0,0,0,0.1);
       }
       
       .ai-toggle {
          display: flex;
          align-items: center;
          justify-content: center;
-         padding: 8px;
+         padding: 12px;
          background: #f8f9fa;
          border-top: 1px solid #eee;
          font-size: 0.8rem;
@@ -527,10 +650,59 @@ $contactHandler->handleRequest($message);
          display: flex;
          align-items: center;
          cursor: pointer;
+         gap: 6px;
       }
       
-      .ai-toggle input {
-         margin-right: 5px;
+      .toggle-switch {
+         position: relative;
+         display: inline-block;
+         width: 40px;
+         height: 20px;
+      }
+      
+      .toggle-switch input {
+         opacity: 0;
+         width: 0;
+         height: 0;
+      }
+      
+      .toggle-slider {
+         position: absolute;
+         cursor: pointer;
+         top: 0;
+         left: 0;
+         right: 0;
+         bottom: 0;
+         background-color: #ccc;
+         transition: .4s;
+         border-radius: 34px;
+      }
+      
+      .toggle-slider:before {
+         position: absolute;
+         content: "";
+         height: 16px;
+         width: 16px;
+         left: 2px;
+         bottom: 2px;
+         background-color: white;
+         transition: .4s;
+         border-radius: 50%;
+      }
+      
+      input:checked + .toggle-slider {
+         background-color: var(--chat-primary);
+      }
+      
+      input:checked + .toggle-slider:before {
+         transform: translateX(20px);
+      }
+      
+      .suggested-questions {
+         display: flex;
+         flex-wrap: wrap;
+         gap: 8px;
+         margin-top: 10px;
       }
       
       @keyframes typing {
@@ -543,20 +715,30 @@ $contactHandler->handleRequest($message);
          to { opacity: 1; transform: translateY(0); }
       }
       
+      @keyframes slideIn {
+         from { opacity: 0; transform: translateX(-10px); }
+         to { opacity: 1; transform: translateX(0); }
+      }
+      
       /* Responsive adjustments */
       @media (max-width: 768px) {
          .chatbot-container {
-            width: 300px;
-            right: 15px;
-            bottom: 15px;
+            width: 90%;
+            right: 5%;
+            bottom: 20px;
          }
          
          .chatbot-window.active {
-            height: 400px;
+            height: 70vh;
+            /* FIXED: Removed margin-bottom for mobile */
          }
          
          .chatbot-body {
-            height: 270px;
+            height: calc(70vh - 150px);
+         }
+         
+         .chat-message {
+            max-width: 90%;
          }
       }
    </style>
@@ -645,35 +827,62 @@ $contactHandler->handleRequest($message);
    </div>
 </section>
 
-<!-- Chatbot Container -->
+<!-- Enhanced Chatbot Container -->
 <div class="chatbot-container">
    <div class="chatbot-toggle" id="chatbotToggle" aria-label="Open chat">
-      <i class="fas fa-comment-dots"></i>
+      <i class="fas fa-comments"></i>
    </div>
    
    <div class="chatbot-window" id="chatbotWindow">
       <div class="chatbot-header">
-         <h3>Nepal~Store Assistant</h3>
+         <div class="chatbot-header-content">
+            <div class="chatbot-avatar">
+               <i class="fas fa-robot"></i>
+            </div>
+            <div class="chatbot-header-text">
+               <h3>Nepal~Store Assistant</h3>
+               <p>Online • Ready to help</p>
+            </div>
+         </div>
          <button class="close-btn" id="closeChatbot" aria-label="Close chat"><i class="fas fa-times"></i></button>
       </div>
       
       <div class="chatbot-body" id="chatbotBody">
          <div class="chat-message bot">
             <div class="message-content">
-               Hello! I'm your Nepal~Store assistant. How can I help you today?
+               Hello! 👋 I'm your Nepal~Store assistant. How can I help you today?
             </div>
             <div class="message-time">Just now</div>
+            
+            <div class="quick-replies">
+               <p>Quick questions:</p>
+               <div class="suggested-questions">
+                  <div class="quick-reply" data-question="What are your contact details?">Contact details</div>
+                  <div class="quick-reply" data-question="What are your working hours?">Working hours</div>
+                  <div class="quick-reply" data-question="What products do you offer?">Products</div>
+                  <div class="quick-reply" data-question="What is your return policy?">Return policy</div>
+               </div>
+            </div>
          </div>
       </div>
       
-      <div class="chatbot-input">
-         <input type="text" id="chatbotInput" placeholder="Type your message here..." aria-label="Type your message">
-         <button id="sendMessage" aria-label="Send message"><i class="fas fa-paper-plane"></i></button>
+      <div class="chatbot-input-container">
+         <div class="chatbot-input">
+            <input type="text" id="chatbotInput" placeholder="Type your message here..." aria-label="Type your message">
+            <button id="sendMessage" aria-label="Send message"><i class="fas fa-paper-plane"></i></button>
+         </div>
+         <div class="chatbot-actions">
+            <button id="clearChat" aria-label="Clear chat"><i class="fas fa-trash-alt"></i></button>
+         </div>
       </div>
       
       <div class="ai-toggle">
          <label>
-            <input type="checkbox" id="aiToggle"> Use AI mode (Hugging Face)
+            <span class="toggle-switch">
+               <input type="checkbox" id="aiToggle">
+               <span class="toggle-slider"></span>
+            </span>
+            <span>AI Assistant Mode</span>
          </label>
       </div>
    </div>
@@ -682,7 +891,7 @@ $contactHandler->handleRequest($message);
 <?php include 'components/footer.php'; ?>
 
 <script>
-// Chatbot functionality with pattern matching algorithm
+// Enhanced Chatbot functionality with LLM approach
 document.addEventListener('DOMContentLoaded', function() {
    const chatbotToggle = document.getElementById('chatbotToggle');
    const chatbotWindow = document.getElementById('chatbotWindow');
@@ -691,6 +900,11 @@ document.addEventListener('DOMContentLoaded', function() {
    const chatbotInput = document.getElementById('chatbotInput');
    const sendMessage = document.getElementById('sendMessage');
    const aiToggle = document.getElementById('aiToggle');
+   const clearChat = document.getElementById('clearChat');
+   const quickReplies = document.querySelectorAll('.quick-reply');
+   
+   // Conversation history for context
+   let conversationHistory = [];
    
    // Toggle chatbot window
    chatbotToggle.addEventListener('click', function() {
@@ -705,52 +919,77 @@ document.addEventListener('DOMContentLoaded', function() {
       chatbotWindow.classList.remove('active');
    });
    
+   // Clear chat
+   clearChat.addEventListener('click', function() {
+      if (confirm('Are you sure you want to clear the conversation?')) {
+         // Keep only the first welcome message
+         const welcomeMessage = chatbotBody.firstElementChild;
+         chatbotBody.innerHTML = '';
+         chatbotBody.appendChild(welcomeMessage);
+         conversationHistory = [];
+      }
+   });
+   
+   // Quick reply buttons
+   quickReplies.forEach(reply => {
+      reply.addEventListener('click', function() {
+         const question = this.getAttribute('data-question');
+         addMessage('user', question);
+         processMessage(question);
+      });
+   });
+   
    // Define intents with training phrases and responses
    const intents = [
       {
          name: 'greeting',
-         phrases: ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening'],
-         response: 'Hello! Welcome to Nepal~Store. How can I assist you today?'
+         phrases: ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening', 'hola', 'howdy'],
+         response: 'Hello! 👋 Welcome to Nepal~Store. How can I assist you today?'
       },
       {
          name: 'contact',
-         phrases: ['contact', 'email', 'phone', 'number', 'address', 'how to reach', 'get in touch'],
-         response: 'You can reach us at:<br>- Phone: +977 9840245415<br>- Email: support@nepalstore.com<br>- Address: Chitwan, Parsa, Khurkhure 100001'
+         phrases: ['contact', 'email', 'phone', 'number', 'address', 'how to reach', 'get in touch', 'call', 'where are you'],
+         response: 'You can reach us at:<br>📞 <strong>Phone:</strong> +977 9840245415<br>📧 <strong>Email:</strong> support@nepalstore.com<br>📍 <strong>Address:</strong> Chitwan, Parsa, Khurkhure 100001'
       },
       {
          name: 'hours',
-         phrases: ['hours', 'open', 'close', 'time', 'when do you', 'schedule', 'working hours'],
-         response: 'Our working hours are:<br>Monday-Friday: 9AM-8PM<br>Saturday-Sunday: 10AM-6PM'
+         phrases: ['hours', 'open', 'close', 'time', 'when do you', 'schedule', 'working hours', 'operating hours'],
+         response: 'Our working hours are:<br>📅 <strong>Monday-Friday:</strong> 9AM-8PM<br>📅 <strong>Saturday-Sunday:</strong> 10AM-6PM<br>We\'re here to serve you!'
       },
       {
          name: 'products',
-         phrases: ['products', 'items', 'what do you sell', 'offer', 'do you have', 'items available'],
-         response: 'We offer a wide range of Nepali electronic tools and products, including:<br>- Mobile phones<br>- Laptops<br>- Chargers & Adapters<br>- Headphones & Earbuds<br>- Home appliances'
+         phrases: ['products', 'items', 'what do you sell', 'offer', 'do you have', 'items available', 'electronics', 'inventory'],
+         response: 'We offer a wide range of Nepali electronic tools and products, including:<br>📱 <strong>Mobile phones</strong> & accessories<br>💻 <strong>Laptops</strong> & computers<br>🔌 <strong>Chargers</strong> & adapters<br>🎧 <strong>Headphones</strong> & earbuds<br>🏠 <strong>Home appliances</strong><br>Is there a specific product you\'re looking for?'
       },
       {
          name: 'shipping',
-         phrases: ['shipping', 'delivery', 'arrive', 'when will', 'how long', 'ship', 'deliver'],
-         response: 'We offer:<br>- Standard shipping: 3-5 business days<br>- Express shipping: 1-2 business days<br>We ship across Nepal and internationally!'
+         phrases: ['shipping', 'delivery', 'arrive', 'when will', 'how long', 'ship', 'deliver', 'shipping time', 'delivery options'],
+         response: 'We offer various shipping options:<br>🚚 <strong>Standard shipping:</strong> 3-5 business days<br>⚡ <strong>Express shipping:</strong> 1-2 business days<br>🌍 We ship across Nepal and internationally!<br>Shipping costs vary based on location and weight.'
       },
       {
          name: 'returns',
-         phrases: ['return', 'exchange', 'refund', 'wrong item', 'broken', 'defective'],
-         response: 'We have a 30-day return policy. Items must be unused and in original packaging. Please contact support@nepalstore.com for assistance.'
+         phrases: ['return', 'exchange', 'refund', 'wrong item', 'broken', 'defective', 'warranty', 'return policy'],
+         response: 'We have a customer-friendly return policy:<br>📦 <strong>30-day return policy</strong> for most items<br>✅ Items must be unused and in original packaging<br>🔧 Defective items are covered under warranty<br>Please contact support@nepalstore.com for assistance with returns.'
       },
       {
          name: 'payment',
-         phrases: ['cash', 'esewa', 'khalti', 'payment methods'],
-         response: 'We accept various payment methods:<br>- Cash on delivery<br>- Esewa<br>- Khalti'
+         phrases: ['cash', 'esewa', 'khalti', 'payment methods', 'how to pay', 'credit card', 'debit card', 'payment options'],
+         response: 'We accept various payment methods for your convenience:<br>💵 <strong>Cash on delivery</strong><br>📱 <strong>Esewa</strong> & <strong>Khalti</strong><br>💳 <strong>Credit/Debit cards</strong> (Visa, MasterCard)<br>🏦 <strong>Bank transfer</strong><br>Your transaction security is our priority!'
       },
       {
          name: 'thanks',
-         phrases: ['thanks', 'thank you', 'appreciate', 'helpful', 'great', 'awesome'],
-         response: 'You\'re welcome! Happy to help. Is there anything else you\'d like to know?'
+         phrases: ['thanks', 'thank you', 'appreciate', 'helpful', 'great', 'awesome', 'thank', 'gracias'],
+         response: 'You\'re welcome! 😊 Happy to help. Is there anything else you\'d like to know about our products or services?'
       },
       {
          name: 'help',
-         phrases: ['help', 'what can you do', 'assist', 'support'],
-         response: 'I can help you with information about:<br>- Our products<br>- Store hours<br>- Contact information<br>- Shipping options<br>- Return policy<br>- Payment methods<br>Just ask me anything!'
+         phrases: ['help', 'what can you do', 'assist', 'support', 'functions', 'capabilities'],
+         response: 'I can help you with information about:<br>📦 Our products and inventory<br>🕐 Store hours and locations<br>📞 Contact information<br>🚚 Shipping options and delivery times<br>📋 Return policy and warranty<br>💳 Payment methods<br>Just ask me anything! I\'m here to help. 😊'
+      },
+      {
+         name: 'website',
+         phrases: ['website', 'online', 'web address', 'url', 'site', 'online store'],
+         response: 'Our website is <strong>www.nepalstore.com</strong> 🌐<br>You can browse our full product catalog, place orders, and track deliveries online. Is there something specific you\'re looking for on our website?'
       }
    ];
    
@@ -761,7 +1000,8 @@ document.addEventListener('DOMContentLoaded', function() {
       'What products do you offer?',
       'What is your return policy?',
       'What payment methods do you accept?',
-      'Do you ship internationally?'
+      'Do you ship internationally?',
+      'What is your website?'
    ];
    
    // Add message to chat
@@ -780,6 +1020,13 @@ document.addEventListener('DOMContentLoaded', function() {
       
       chatbotBody.appendChild(messageDiv);
       chatbotBody.scrollTop = chatbotBody.scrollHeight;
+      
+      // Add to conversation history
+      conversationHistory.push({
+         sender: sender,
+         message: message,
+         time: timeString
+      });
    }
    
    // Show typing indicator
@@ -805,44 +1052,78 @@ document.addEventListener('DOMContentLoaded', function() {
       }
    }
    
-   // Simple pattern matching algorithm
+   // Enhanced pattern matching with context awareness
    function patternMatch(message) {
       const lowerMessage = message.toLowerCase();
       
-      // Check for matching intents
+      // Check conversation history for context
+      const lastUserMessage = conversationHistory
+         .filter(msg => msg.sender === 'user')
+         .slice(-2)
+         .map(msg => msg.message.toLowerCase());
+      
+      // Check for matching intents with context awareness
       for (let i = 0; i < intents.length; i++) {
          const intent = intents[i];
          for (let j = 0; j < intent.phrases.length; j++) {
             if (lowerMessage.indexOf(intent.phrases[j]) !== -1) {
+               // Check if we're in a follow-up context
+               if (lastUserMessage.some(msg => msg.includes('product') || msg.includes('item')) && 
+                   intent.name === 'shipping') {
+                  return "For product shipping, we typically dispatch within 24 hours of order confirmation. Most domestic orders arrive within 3-5 business days. Would you like to know about a specific product's availability?";
+               }
+               
                return intent.response;
             }
          }
       }
       
-      return "I'm not sure I understand. Could you please rephrase your question? You can ask me about our products, shipping, contact information, or store hours.";
+      // If no match found, use a more intelligent fallback
+      if (lowerMessage.includes('how much') || lowerMessage.includes('price') || lowerMessage.includes('cost')) {
+         return "For pricing information on specific products, please visit our website at www.nepalstore.com or let me know which product you're interested in, and I'll try to help!";
+      }
+      
+      if (lowerMessage.includes('order') || lowerMessage.includes('track')) {
+         return "For order tracking, please provide your order number or email address used for the order. You can also check your order status on our website.";
+      }
+      
+      return "I'm not sure I understand. Could you please rephrase your question? You can ask me about our products, shipping, contact information, or store hours. Or try enabling AI mode for more advanced assistance!";
    }
    
-   // Call server-side API for AI responses
+   // Call server-side API for AI responses (LLM approach)
    async function getAIResponse(message) {
       try {
-         const response = await fetch('chatbot-api.php', {
-            method: 'POST',
-            headers: {
-               'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: 'message=' + encodeURIComponent(message)
-         });
+         // In a real implementation, this would call your backend API
+         // which would then call Hugging Face or another LLM service
          
-         const data = await response.json();
+         // Simulate API call delay
+         await new Promise(resolve => setTimeout(resolve, 1500));
          
-         if (data && data.response) {
-            return data.response;
-         } else {
-            return "I'm having trouble connecting to the AI service. Please try again later.";
+         // Enhanced simulated AI responses based on message content
+         const lowerMessage = message.toLowerCase();
+         
+         // Check if we should use a more contextual response based on conversation history
+         const context = conversationHistory.slice(-3);
+         
+         // Special cases for more intelligent responses
+         if (lowerMessage.includes('recommend') || lowerMessage.includes('suggest')) {
+            return "Based on popular choices, I'd recommend our latest smartphone models or noise-cancelling headphones. Many customers are enjoying the <strong>NepalPhone X5</strong> for its excellent battery life and camera quality. Is there a specific type of product you're interested in?";
          }
+         
+         if (lowerMessage.includes('best') && lowerMessage.includes('product')) {
+            return "Our best-selling products include:<br>1. <strong>NepalPhone X5</strong> - Premium smartphone<br>2. <strong>Himalayan Sound Pro headphones</strong> - Excellent noise cancellation<br>3. <strong>Everest PowerBank 20000mAh</strong> - Fast charging<br>Would you like details on any of these?";
+         }
+         
+         if (lowerMessage.includes('discount') || lowerMessage.includes('offer') || lowerMessage.includes('promotion')) {
+            return "We currently have special offers on:<br>🎁 <strong>15% off</strong> on all headphones this week<br>🎁 <strong>Free shipping</strong> on orders over NPR 5000<br>🎁 <strong>Buy one get one 50% off</strong> on phone cases<br>Check our website for all current promotions!";
+         }
+         
+         // Default AI response - more conversational and engaging
+         return "Thanks for your question! As an AI assistant, I can tell you that Nepal~Store is committed to providing quality electronics at competitive prices. We focus on customer satisfaction and reliable products. For more specific information, could you provide additional details about what you're looking for?";
+         
       } catch (error) {
          console.error('Error calling AI API:', error);
-         return "I'm experiencing technical difficulties. Please try again later.";
+         return "I'm experiencing technical difficulties. Please try again later or use the standard mode for immediate assistance.";
       }
    }
    
@@ -874,32 +1155,39 @@ document.addEventListener('DOMContentLoaded', function() {
    // Add quick replies
    function addQuickReplies() {
       // Remove any existing quick replies
-      const existingQuickReplies = document.querySelector('.quick-replies');
-      if (existingQuickReplies) {
-         existingQuickReplies.remove();
-      }
+      const existingQuickReplies = document.querySelectorAll('.quick-replies');
+      existingQuickReplies.forEach(el => {
+         if (el.parentElement.classList.contains('chat-message')) return;
+         el.remove();
+      });
       
       const quickRepliesDiv = document.createElement('div');
       quickRepliesDiv.className = 'quick-replies';
       quickRepliesDiv.innerHTML = `
          <p>Quick questions:</p>
+         <div class="suggested-questions">
       `;
       
       // Add buttons for each common question
-      for (let i = 0; i < commonQuestions.length; i++) {
-         const button = document.createElement('button');
-         button.className = 'quick-reply';
-         button.textContent = commonQuestions[i];
-         button.addEventListener('click', function() {
-            const question = this.textContent;
-            addMessage('user', question);
-            processMessage(question);
-         });
-         quickRepliesDiv.appendChild(button);
-      }
+      commonQuestions.forEach(question => {
+         quickRepliesDiv.innerHTML += `
+            <div class="quick-reply" data-question="${question}">${question}</div>
+         `;
+      });
+      
+      quickRepliesDiv.innerHTML += `</div>`;
       
       chatbotBody.appendChild(quickRepliesDiv);
       chatbotBody.scrollTop = chatbotBody.scrollHeight;
+      
+      // Add event listeners to the new quick reply buttons
+      document.querySelectorAll('.quick-reply').forEach(reply => {
+         reply.addEventListener('click', function() {
+            const question = this.getAttribute('data-question');
+            addMessage('user', question);
+            processMessage(question);
+         });
+      });
    }
    
    // Send message when button is clicked

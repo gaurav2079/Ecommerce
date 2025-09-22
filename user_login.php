@@ -149,6 +149,202 @@ if(isset($_POST['submit'])){
       display: flex;
       flex-direction: column;
       transition: var(--transition);
+      overflow-x: hidden;
+      position: relative;
+   }
+
+   /* Animated background elements */
+   .bg-bubbles {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      overflow: hidden;
+      pointer-events: none;
+   }
+
+   .bg-bubbles li {
+      position: absolute;
+      list-style: none;
+      display: block;
+      width: 40px;
+      height: 40px;
+      background-color: rgba(67, 97, 238, 0.1);
+      bottom: -160px;
+      border-radius: 50%;
+      animation: square 25s infinite;
+      transition-timing-function: linear;
+   }
+
+   .bg-bubbles li:nth-child(1) {
+      left: 10%;
+      animation-delay: 0s;
+      width: 80px;
+      height: 80px;
+   }
+
+   .bg-bubbles li:nth-child(2) {
+      left: 20%;
+      animation-delay: 2s;
+      animation-duration: 17s;
+      width: 60px;
+      height: 60px;
+   }
+
+   .bg-bubbles li:nth-child(3) {
+      left: 25%;
+      animation-delay: 4s;
+      width: 100px;
+      height: 100px;
+   }
+
+   .bg-bubbles li:nth-child(4) {
+      left: 40%;
+      animation-delay: 0s;
+      animation-duration: 22s;
+      width: 120px;
+      height: 120px;
+   }
+
+   .bg-bubbles li:nth-child(5) {
+      left: 70%;
+      animation-delay: 3s;
+      width: 70px;
+      height: 70px;
+   }
+
+   .bg-bubbles li:nth-child(6) {
+      left: 80%;
+      animation-delay: 2s;
+      width: 90px;
+      height: 90px;
+   }
+
+   .bg-bubbles li:nth-child(7) {
+      left: 32%;
+      animation-delay: 6s;
+      width: 110px;
+      height: 110px;
+   }
+
+   .bg-bubbles li:nth-child(8) {
+      left: 55%;
+      animation-delay: 8s;
+      animation-duration: 18s;
+      width: 50px;
+      height: 50px;
+   }
+
+   .bg-bubbles li:nth-child(9) {
+      left: 25%;
+      animation-delay: 9s;
+      animation-duration: 20s;
+      width: 30px;
+      height: 30px;
+   }
+
+   .bg-bubbles li:nth-child(10) {
+      left: 90%;
+      animation-delay: 11s;
+      width: 70px;
+      height: 70px;
+   }
+
+   @keyframes square {
+      0% {
+         transform: translateY(0) rotate(0deg);
+         opacity: 0.5;
+         border-radius: 50%;
+      }
+      50% {
+         opacity: 0.7;
+      }
+      100% {
+         transform: translateY(-1000px) rotate(720deg);
+         opacity: 0;
+         border-radius: 50%;
+      }
+   }
+
+   .floating-shapes {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      overflow: hidden;
+      pointer-events: none;
+   }
+
+   .shape {
+      position: absolute;
+      opacity: 0.1;
+      animation: float 15s infinite linear;
+   }
+
+   .shape--0 {
+      top: 15%;
+      left: 10%;
+      width: 100px;
+      height: 100px;
+      background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
+      border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+      animation-delay: 0s;
+      animation-duration: 20s;
+   }
+
+   .shape--1 {
+      top: 65%;
+      left: 75%;
+      width: 120px;
+      height: 120px;
+      background: linear-gradient(45deg, var(--secondary-color), var(--primary-color));
+      border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+      animation-delay: 2s;
+      animation-duration: 25s;
+   }
+
+   .shape--2 {
+      top: 25%;
+      left: 80%;
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(45deg, var(--accent-color), var(--secondary-color));
+      border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+      animation-delay: 4s;
+      animation-duration: 18s;
+   }
+
+   .shape--3 {
+      top: 70%;
+      left: 15%;
+      width: 90px;
+      height: 90px;
+      background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+      border-radius: 38% 62% 63% 37% / 41% 44% 56% 59%;
+      animation-delay: 1s;
+      animation-duration: 22s;
+   }
+
+   @keyframes float {
+      0% {
+         transform: translate(0, 0) rotate(0deg);
+      }
+      25% {
+         transform: translate(5px, 10px) rotate(5deg);
+      }
+      50% {
+         transform: translate(10px, 5px) rotate(0deg);
+      }
+      75% {
+         transform: translate(5px, 0px) rotate(-5deg);
+      }
+      100% {
+         transform: translate(0, 0) rotate(0deg);
+      }
    }
 
    .header {
@@ -163,6 +359,18 @@ if(isset($_POST['submit'])){
       top: 0;
       z-index: 1000;
       transition: var(--transition);
+      animation: slideDown 0.5s ease-out;
+   }
+
+   @keyframes slideDown {
+      from {
+         transform: translateY(-100%);
+         opacity: 0;
+      }
+      to {
+         transform: translateY(0);
+         opacity: 1;
+      }
    }
 
    .logo {
@@ -186,11 +394,25 @@ if(isset($_POST['submit'])){
       font-size: 1.2rem;
       cursor: pointer;
       transition: var(--transition);
+      animation: pulse 2s infinite;
+   }
+
+   @keyframes pulse {
+      0% {
+         transform: scale(1);
+      }
+      50% {
+         transform: scale(1.1);
+      }
+      100% {
+         transform: scale(1);
+      }
    }
 
    .theme-toggle:hover {
       color: var(--primary-color);
       transform: rotate(30deg);
+      animation: none;
    }
 
    main {
@@ -209,9 +431,47 @@ if(isset($_POST['submit'])){
       box-shadow: var(--shadow);
       width: 100%;
       max-width: 450px;
-      animation: fadeInUp 0.6s ease-out;
+      animation: fadeInUp 0.6s ease-out, glow 3s infinite alternate;
       transition: var(--transition);
       border: 1px solid var(--border-color);
+      position: relative;
+      overflow: hidden;
+   }
+
+   .form-container::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(
+         to bottom right,
+         rgba(67, 97, 238, 0.1),
+         rgba(73, 149, 239, 0.1),
+         rgba(63, 55, 201, 0.1)
+      );
+      transform: rotate(30deg);
+      z-index: 0;
+      animation: shimmer 8s infinite linear;
+   }
+
+   @keyframes shimmer {
+      0% {
+         transform: rotate(30deg) translateX(-100%);
+      }
+      100% {
+         transform: rotate(30deg) translateX(100%);
+      }
+   }
+
+   @keyframes glow {
+      0% {
+         box-shadow: var(--shadow);
+      }
+      100% {
+         box-shadow: 0 0 25px rgba(67, 97, 238, 0.2);
+      }
    }
 
    @keyframes fadeInUp {
@@ -222,29 +482,69 @@ if(isset($_POST['submit'])){
    .form-header {
       text-align: center;
       margin-bottom: 2rem;
+      position: relative;
+      z-index: 1;
    }
 
    .form-header h2 {
       color: var(--primary-color);
       font-size: 2rem;
       margin-bottom: 0.5rem;
+      animation: typing 2s steps(15), blink 0.5s step-end infinite alternate;
+      white-space: nowrap;
+      overflow: hidden;
+      border-right: 3px solid;
+      width: 15ch;
+      margin: 0 auto 0.5rem;
+   }
+
+   @keyframes typing {
+      from {
+         width: 0;
+      }
+   }
+   
+   @keyframes blink {
+      50% {
+         border-color: transparent;
+      }
    }
 
    .form-header p {
       color: var(--text-color);
       opacity: 0.8;
+      animation: fadeIn 1s ease-out 1s both;
+   }
+
+   @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 0.8; }
    }
 
    .form-group {
       margin-bottom: 1.5rem;
       position: relative;
+      z-index: 1;
+      animation: slideInLeft 0.5s ease-out;
    }
 
-   .form-group label {
-      display: block;
-      margin-bottom: 0.5rem;
-      font-weight: 500;
-      color: var(--text-color);
+   @keyframes slideInLeft {
+      from {
+         opacity: 0;
+         transform: translateX(-20px);
+      }
+      to {
+         opacity: 1;
+         transform: translateX(0);
+      }
+   }
+
+   .form-group:nth-child(1) {
+      animation-delay: 0.2s;
+   }
+
+   .form-group:nth-child(2) {
+      animation-delay: 0.4s;
    }
 
    .input-with-icon {
@@ -257,6 +557,7 @@ if(isset($_POST['submit'])){
       top: 50%;
       transform: translateY(-50%);
       color: var(--primary-color);
+      transition: var(--transition);
    }
 
    .form-control {
@@ -268,12 +569,19 @@ if(isset($_POST['submit'])){
       color: var(--text-color);
       font-size: 1rem;
       transition: var(--transition);
+      position: relative;
+      z-index: 1;
    }
 
    .form-control:focus {
       outline: none;
       border-color: var(--primary-color);
       box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.15);
+   }
+
+   .form-control:focus + i {
+      color: var(--accent-color);
+      transform: translateY(-50%) scale(1.2);
    }
 
    .password-toggle {
@@ -295,6 +603,7 @@ if(isset($_POST['submit'])){
    .password-toggle:hover {
       opacity: 1;
       color: var(--primary-color);
+      transform: translateY(-50%) scale(1.1);
    }
 
    .form-control {
@@ -317,6 +626,39 @@ if(isset($_POST['submit'])){
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
+      position: relative;
+      z-index: 1;
+      overflow: hidden;
+      animation: bounceIn 1s;
+   }
+
+   @keyframes bounceIn {
+      0% {
+         transform: scale(0.8);
+         opacity: 0;
+      }
+      60% {
+         transform: scale(1.05);
+      }
+      100% {
+         transform: scale(1);
+         opacity: 1;
+      }
+   }
+
+   .btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: 0.5s;
+   }
+
+   .btn:hover::before {
+      left: 100%;
    }
 
    .btn:hover {
@@ -327,6 +669,11 @@ if(isset($_POST['submit'])){
 
    .btn i {
       font-size: 1.1rem;
+      transition: var(--transition);
+   }
+
+   .btn:hover i {
+      transform: translateX(3px);
    }
 
    .form-footer {
@@ -335,6 +682,9 @@ if(isset($_POST['submit'])){
       color: var(--text-color);
       opacity: 0.8;
       font-size: 0.9rem;
+      position: relative;
+      z-index: 1;
+      animation: fadeIn 1s ease-out 0.8s both;
    }
 
    .form-footer a {
@@ -342,11 +692,26 @@ if(isset($_POST['submit'])){
       text-decoration: none;
       font-weight: 600;
       transition: var(--transition);
+      position: relative;
+   }
+
+   .form-footer a::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      width: 0;
+      height: 2px;
+      background-color: var(--accent-color);
+      transition: var(--transition);
    }
 
    .form-footer a:hover {
       color: var(--accent-color);
-      text-decoration: underline;
+   }
+
+   .form-footer a:hover::after {
+      width: 100%;
    }
 
    .divider {
@@ -355,6 +720,8 @@ if(isset($_POST['submit'])){
       margin: 1.5rem 0;
       color: var(--text-color);
       opacity: 0.6;
+      position: relative;
+      z-index: 1;
    }
 
    .divider::before, .divider::after {
@@ -376,18 +743,23 @@ if(isset($_POST['submit'])){
       color: var(--error-color);
       text-align: center;
       font-size: 0.9rem;
-      animation: fadeIn 0.3s ease-out;
+      animation: shake 0.5s ease-in-out, fadeIn 0.3s ease-out;
+      position: relative;
+      z-index: 1;
    }
 
-   @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-10px); }
-      to { opacity: 1; transform: translateY(0); }
+   @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-5px); }
+      40%, 80% { transform: translateX(5px); }
    }
 
    .social-login {
       display: flex;
       gap: 1rem;
       margin-bottom: 1.5rem;
+      position: relative;
+      z-index: 1;
    }
 
    .social-btn {
@@ -404,6 +776,7 @@ if(isset($_POST['submit'])){
       border: 1px solid var(--border-color);
       background-color: var(--card-bg);
       color: var(--text-color);
+      animation: fadeIn 1s ease-out;
    }
 
    .social-btn.google { color: #DB4437; }
@@ -426,6 +799,11 @@ if(isset($_POST['submit'])){
       
       .logo {
          font-size: 1.5rem;
+      }
+
+      .bg-bubbles li {
+         width: 30px !important;
+         height: 30px !important;
       }
    }
 
@@ -478,14 +856,53 @@ if(isset($_POST['submit'])){
           transform: translateY(-3px);
       }
    }
+
+   /* Confetti animation */
+   .confetti {
+      position: absolute;
+      z-index: 2;
+      pointer-events: none;
+   }
+
+   @keyframes confettiFall {
+      0% {
+         transform: translateY(-100px) rotate(0deg);
+         opacity: 1;
+      }
+      100% {
+         transform: translateY(1000px) rotate(720deg);
+         opacity: 0;
+      }
+   }
    </style>
 </head>
 <body>
    
+   <!-- Animated background elements -->
+   <ul class="bg-bubbles">
+      <li></li>
+      <li></li>
+      <li></li>
+      <li></li>
+      <li></li>
+      <li></li>
+      <li></li>
+      <li></li>
+      <li></li>
+      <li></li>
+   </ul>
+
+   <div class="floating-shapes">
+      <div class="shape shape--0"></div>
+      <div class="shape shape--1"></div>
+      <div class="shape shape--2"></div>
+      <div class="shape shape--3"></div>
+   </div>
+
 <header class="header">
     <a href="home.php" class="logo">
         <div class="cube-container">
-            <i class="fas fa-cube rotating-cube"></i>
+            <i class="fas fa-store rotating-cube"></i>
         </div>
         <span class="logo-text">Nepal~Store</span>
     </a>
@@ -537,10 +954,6 @@ if(isset($_POST['submit'])){
                 <span>Login</span>
             </button>
             
-            <div class="divider">
-                <span>or continue with</span>
-            </div>
-            
             <div class="form-footer">
                 Don't have an account? <a href="user_register.php">Sign up</a>
             </div>
@@ -588,16 +1001,54 @@ if(isset($_POST['submit'])){
       }
    });
 
-   // Add animation to social buttons on hover
-   const socialButtons = document.querySelectorAll('.social-btn');
-   socialButtons.forEach(button => {
-      button.addEventListener('mouseenter', () => {
-         const icon = button.querySelector('i');
-         icon.style.transform = 'scale(1.2)';
-         setTimeout(() => {
-            icon.style.transform = 'scale(1)';
-         }, 300);
+   // Add animation to input fields on focus
+   const inputs = document.querySelectorAll('.form-control');
+   inputs.forEach(input => {
+      input.addEventListener('focus', () => {
+         input.parentElement.querySelector('i').style.transform = 'translateY(-50%) scale(1.2)';
+         input.style.boxShadow = '0 0 15px rgba(67, 97, 238, 0.2)';
       });
+      
+      input.addEventListener('blur', () => {
+         input.parentElement.querySelector('i').style.transform = 'translateY(-50%) scale(1)';
+         input.style.boxShadow = 'none';
+      });
+   });
+
+   // Create confetti animation on button click
+   const loginBtn = document.querySelector('.btn');
+   loginBtn.addEventListener('click', function(e) {
+      if (!this.closest('form').checkValidity()) return;
+      
+      // Create confetti elements
+      for (let i = 0; i < 30; i++) {
+         const confetti = document.createElement('div');
+         confetti.classList.add('confetti');
+         confetti.innerHTML = '<i class="fas fa-star"></i>';
+         confetti.style.left = Math.random() * 100 + '%';
+         confetti.style.color = ['#4361ee', '#3f37c9', '#4895ef', '#4cc9f0'][Math.floor(Math.random() * 4)];
+         confetti.style.fontSize = (Math.random() * 10 + 10) + 'px';
+         confetti.style.animation = `confettiFall ${Math.random() * 3 + 2}s linear forwards`;
+         document.body.appendChild(confetti);
+         
+         // Remove confetti after animation completes
+         setTimeout(() => {
+            confetti.remove();
+         }, 5000);
+      }
+   });
+
+   // Add subtle hover animation to form container
+   const formContainer = document.querySelector('.form-container');
+   formContainer.addEventListener('mousemove', function(e) {
+      const x = e.clientX / window.innerWidth;
+      const y = e.clientY / window.innerHeight;
+      
+      this.style.transform = `perspective(1000px) rotateX(${(y - 0.5) * 2}deg) rotateY(${(x - 0.5) * 2}deg)`;
+   });
+   
+   formContainer.addEventListener('mouseleave', function() {
+      this.style.transform = 'perspective(1000px) rotateX(0) rotateY(0)';
    });
 </script>
 

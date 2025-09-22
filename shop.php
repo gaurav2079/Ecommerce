@@ -127,7 +127,7 @@ include 'components/wishlist_cart.php';
    <meta charset="UTF-8">
    <meta http-equiv="X-UA-Compatible" content="IE=edge">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>Shop | electronic things</title>
+   <title>Shop | Nepal~Store</title>
    
    <!-- font awesome cdn link  -->
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
@@ -256,250 +256,309 @@ include 'components/wishlist_cart.php';
          box-shadow: 0 5px 15px rgba(58, 12, 163, 0.2);
       }
       
-  
-      /* Products section */
-      .products {
-         padding: 6rem 9%;
+      /* Featured Products Section */
+      .featured-products {
+         padding: 6rem 5%;
          background: var(--light);
       }
       
-      .box-container {
-         display: grid;
-         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-         gap: 3rem;
+      .section-header {
+         text-align: center;
+         margin-bottom: 4rem;
       }
       
-      .products .box {
+      .section-header h2 {
+         font-family: 'Playfair Display', serif;
+         font-size: 3rem;
+         color: var(--dark);
+         margin-bottom: 1rem;
+         position: relative;
+         display: inline-block;
+      }
+      
+      .section-header h2::after {
+         content: '';
+         position: absolute;
+         bottom: -15px;
+         left: 50%;
+         transform: translateX(-50%);
+         width: 80px;
+         height: 4px;
+         background: var(--secondary);
+         border-radius: 2px;
+      }
+      
+      .section-header p {
+         font-size: 1.2rem;
+         color: var(--dark-light);
+         max-width: 700px;
+         margin: 2rem auto 0;
+         line-height: 1.6;
+      }
+      
+      .products-grid {
+         display: grid;
+         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+         gap: 2.5rem;
+      }
+      
+      .product-card {
          background: #fff;
-         border-radius: 15px;
+         border-radius: 16px;
          overflow: hidden;
-         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
          transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
          position: relative;
+         display: flex;
+         flex-direction: column;
       }
       
-      .products .box:hover {
+      .product-card:hover {
          transform: translateY(-10px);
-         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
       }
       
-      .products .box .product-badge {
+      .product-badge-container {
          position: absolute;
          top: 15px;
          left: 15px;
-         background: var(--secondary);
-         color: white;
+         z-index: 3;
+         display: flex;
+         flex-direction: column;
+         gap: 8px;
+      }
+      
+      .product-badge {
          padding: 0.4rem 1rem;
          border-radius: 50px;
-         font-size: 0.8rem;
-         font-weight: 600;
-         z-index: 2;
-         box-shadow: 0 3px 10px rgba(247, 37, 133, 0.3);
+         font-size: 0.75rem;
+         font-weight: 700;
+         text-transform: uppercase;
+         letter-spacing: 0.5px;
+         box-shadow: 0 3px 10px rgba(0,0,0,0.15);
       }
       
-      .products .box .product-badge.sale {
+      .product-badge.sale {
          background: var(--warning);
-         box-shadow: 0 3px 10px rgba(255, 158, 0, 0.3);
+         color: white;
       }
       
-      .products .box .product-badge.new {
+      .product-badge.new {
          background: var(--success);
-         box-shadow: 0 3px 10px rgba(74, 214, 109, 0.3);
+         color: white;
       }
       
-      .products .box .image-container {
-         overflow: hidden;
+      .product-badge.hot {
+         background: var(--secondary);
+         color: white;
+      }
+      
+      .product-image-container {
          position: relative;
-         height: 300px;
+         overflow: hidden;
+         height: 260px;
       }
       
-      .products .box img {
+      .product-image {
          width: 100%;
          height: 100%;
          object-fit: cover;
          transition: all 0.6s ease;
       }
       
-      .products .box:hover img {
-         transform: scale(1.1);
+      .product-card:hover .product-image {
+         transform: scale(1.08);
       }
       
-      .products .box .product-info {
-         padding: 2rem;
-      }
-      
-      .products .box .name {
-         font-size: 1.2rem;
-         color: var(--dark);
-         margin-bottom: 0.8rem;
-         font-weight: 600;
-         transition: color 0.3s ease;
-         display: block;
-      }
-      
-      .products .box:hover .name {
-         color: var(--primary);
-      }
-      
-      .products .box .category {
-         font-size: 0.85rem;
-         color: var(--dark-light);
-         margin-bottom: 0.8rem;
-         display: block;
-         text-transform: uppercase;
-         letter-spacing: 0.5px;
-      }
-      
-      .products .box .rating {
-         color: var(--warning);
-         font-size: 0.9rem;
-         margin-bottom: 1.2rem;
-      }
-      
-      .products .box .flex {
+      .product-overlay {
+         position: absolute;
+         top: 0;
+         left: 0;
+         width: 100%;
+         height: 100%;
+         background: rgba(58, 12, 163, 0.7);
          display: flex;
          align-items: center;
-         justify-content: space-between;
-         margin-top: 1.5rem;
+         justify-content: center;
+         opacity: 0;
+         transition: all 0.4s ease;
       }
       
-      .products .box .price {
-         font-weight: 700;
-         color: var(--primary);
-         font-size: 1.5rem;
+      .product-card:hover .product-overlay {
+         opacity: 1;
       }
       
-      .products .box .price span {
-         font-size: 1rem;
-         color: #999;
-         text-decoration: line-through;
-         margin-left: 0.5rem;
-      }
-      
-      .products .box .qty {
-         width: 70px;
-         padding: 0.6rem;
-         border: 1px solid #eee;
-         border-radius: 5px;
-         text-align: center;
-         font-weight: 600;
-         background: #f9f9f9;
-         transition: all 0.3s ease;
-      }
-      
-      .products .box .qty:focus {
-         border-color: var(--primary-light);
-         outline: none;
-         box-shadow: 0 0 0 3px rgba(58, 12, 163, 0.1);
-      }
-      
-      .products .box .btn {
-         display: block;
-         width: calc(100% - 4rem);
-         margin: 0 2rem 2rem;
-         background: var(--primary);
-         color: #fff;
-         border: none;
-         border-radius: 8px;
-         padding: 1rem;
-         cursor: pointer;
-         font-weight: 600;
-         transition: all 0.3s ease;
-         text-align: center;
-         font-size: 1rem;
-         text-transform: uppercase;
-         letter-spacing: 0.5px;
-         box-shadow: 0 5px 15px rgba(58, 12, 163, 0.2);
-      }
-      
-      .products .box .btn:hover {
-         background: var(--secondary);
-         transform: translateY(-3px);
-         box-shadow: 0 8px 25px rgba(247, 37, 133, 0.3);
-      }
-      
-      .products .box .btn i {
-         margin-right: 8px;
-      }
-      
-      .products .box .action-buttons {
-         position: absolute;
-         top: 15px;
-         right: 15px;
+      .product-actions {
          display: flex;
-         flex-direction: column;
-         gap: 0.8rem;
-         z-index: 2;
+         gap: 15px;
       }
       
-      .products .box .action-buttons button {
-         background: rgba(255, 255, 255, 0.95);
-         border: none;
-         width: 40px;
-         height: 40px;
+      .action-btn {
+         width: 45px;
+         height: 45px;
          border-radius: 50%;
          display: flex;
          align-items: center;
          justify-content: center;
+         background: white;
+         color: var(--dark);
+         font-size: 1.1rem;
          cursor: pointer;
          transition: all 0.3s ease;
-         color: var(--dark);
-         font-size: 1rem;
-         box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+         border: none;
+         box-shadow: 0 5px 15px rgba(0,0,0,0.1);
       }
       
-      .products .box .action-buttons button:hover {
+      .action-btn:hover {
          background: var(--secondary);
          color: white;
-         transform: scale(1.1);
+         transform: translateY(-3px);
       }
       
-      /* Empty state */
-      .empty {
-         text-align: center;
-         grid-column: 1/-1;
-         padding: 6rem 0;
+      .product-info {
+         padding: 1.8rem;
+         flex-grow: 1;
+         display: flex;
+         flex-direction: column;
       }
       
-      .empty img {
-         width: 250px;
-         margin-bottom: 2.5rem;
-         opacity: 0.8;
-      }
-      
-      .empty h3 {
-         font-size: 2rem;
-         color: var(--dark);
-         margin-bottom: 1.5rem;
-         font-family: 'Playfair Display', serif;
-      }
-      
-      .empty p {
-         font-size: 1.2rem;
+      .product-category {
+         font-size: 0.85rem;
          color: var(--dark-light);
-         margin-bottom: 2rem;
-         max-width: 600px;
-         margin-left: auto;
-         margin-right: auto;
+         text-transform: uppercase;
+         letter-spacing: 0.5px;
+         margin-bottom: 0.8rem;
+         font-weight: 600;
       }
       
-      .empty .btn {
-         display: inline-block;
-         padding: 1rem 3rem;
+      .product-name {
+         font-size: 1.25rem;
+         color: var(--dark);
+         margin-bottom: 1rem;
+         font-weight: 700;
+         line-height: 1.4;
+         transition: color 0.3s ease;
+         display: block;
+      }
+      
+      .product-name:hover {
+         color: var(--primary);
+      }
+      
+      .product-rating {
+         display: flex;
+         align-items: center;
+         margin-bottom: 1.2rem;
+         gap: 8px;
+      }
+      
+      .stars {
+         color: var(--warning);
+         font-size: 0.9rem;
+      }
+      
+      .rating-count {
+         font-size: 0.85rem;
+         color: var(--dark-light);
+      }
+      
+      .product-price {
+         margin-top: auto;
+         display: flex;
+         align-items: center;
+         justify-content: space-between;
+         flex-wrap: wrap;
+         gap: 15px;
+      }
+      
+      .price-container {
+         display: flex;
+         flex-direction: column;
+      }
+      
+      .current-price {
+         font-weight: 800;
+         color: var(--primary);
+         font-size: 1.5rem;
+      }
+      
+      .original-price {
+         font-size: 0.95rem;
+         color: #999;
+         text-decoration: line-through;
+      }
+      
+      .discount-percent {
+         background: var(--secondary);
+         color: white;
+         padding: 0.3rem 0.7rem;
+         border-radius: 50px;
+         font-size: 0.8rem;
+         font-weight: 700;
+      }
+      
+      .add-to-cart-btn {
+         display: flex;
+         align-items: center;
+         gap: 10px;
+         padding: 0.9rem 1.8rem;
          background: var(--primary);
          color: white;
+         border: none;
          border-radius: 50px;
          font-weight: 600;
+         cursor: pointer;
          transition: all 0.3s ease;
-         font-size: 1.1rem;
-         text-transform: uppercase;
-         letter-spacing: 1px;
+         font-size: 0.95rem;
+         box-shadow: 0 5px 15px rgba(58, 12, 163, 0.2);
       }
       
-      .empty .btn:hover {
+      .add-to-cart-btn:hover {
          background: var(--secondary);
          transform: translateY(-3px);
-         box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+         box-shadow: 0 8px 20px rgba(247, 37, 133, 0.3);
+      }
+      
+      .quantity-selector {
+         display: flex;
+         align-items: center;
+         background: #f8f9fa;
+         border-radius: 50px;
+         padding: 0.3rem;
+         margin-top: 1rem;
+      }
+      
+      .qty-btn {
+         width: 32px;
+         height: 32px;
+         border-radius: 50%;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         background: white;
+         border: 1px solid #e9ecef;
+         cursor: pointer;
+         font-weight: 600;
+         transition: all 0.2s ease;
+      }
+      
+      .qty-btn:hover {
+         background: var(--primary);
+         color: white;
+         border-color: var(--primary);
+      }
+      
+      .qty-input {
+         width: 40px;
+         text-align: center;
+         border: none;
+         background: transparent;
+         font-weight: 600;
+         font-size: 1rem;
+      }
+      
+      .qty-input:focus {
+         outline: none;
       }
       
       /* Featured banner */
@@ -508,7 +567,7 @@ include 'components/wishlist_cart.php';
          color: white;
          padding: 3rem;
          border-radius: 15px;
-         margin-bottom: 4rem;
+         margin: 5rem 0;
          display: flex;
          align-items: center;
          justify-content: space-between;
@@ -634,6 +693,54 @@ include 'components/wishlist_cart.php';
          margin-right: 10px;
       }
       
+      /* Empty state */
+      .empty {
+         text-align: center;
+         grid-column: 1/-1;
+         padding: 6rem 0;
+      }
+      
+      .empty img {
+         width: 250px;
+         margin-bottom: 2.5rem;
+         opacity: 0.8;
+      }
+      
+      .empty h3 {
+         font-size: 2rem;
+         color: var(--dark);
+         margin-bottom: 1.5rem;
+         font-family: 'Playfair Display', serif;
+      }
+      
+      .empty p {
+         font-size: 1.2rem;
+         color: var(--dark-light);
+         margin-bottom: 2rem;
+         max-width: 600px;
+         margin-left: auto;
+         margin-right: auto;
+      }
+      
+      .empty .btn {
+         display: inline-block;
+         padding: 1rem 3rem;
+         background: var(--primary);
+         color: white;
+         border-radius: 50px;
+         font-weight: 600;
+         transition: all 0.3s ease;
+         font-size: 1.1rem;
+         text-transform: uppercase;
+         letter-spacing: 1px;
+      }
+      
+      .empty .btn:hover {
+         background: var(--secondary);
+         transform: translateY(-3px);
+         box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+      }
+      
       /* Animations */
       @keyframes fadeInUp {
          from {
@@ -648,12 +755,12 @@ include 'components/wishlist_cart.php';
       
       /* Responsive adjustments */
       @media (max-width: 1200px) {
-         .products {
+         .featured-products {
             padding: 5rem 5%;
          }
          
-         .box-container {
-            gap: 2.5rem;
+         .products-grid {
+            gap: 2rem;
          }
       }
       
@@ -666,7 +773,7 @@ include 'components/wishlist_cart.php';
             font-size: 3.2rem;
          }
          
-         .heading {
+         .section-header h2 {
             font-size: 2.5rem;
          }
          
@@ -674,6 +781,10 @@ include 'components/wishlist_cart.php';
             flex-direction: column;
             text-align: center;
             gap: 2rem;
+         }
+         
+         .products-grid {
+            grid-template-columns: repeat(2, 1fr);
          }
       }
       
@@ -690,13 +801,23 @@ include 'components/wishlist_cart.php';
             font-size: 1.1rem;
          }
          
-         .box-container {
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 2rem;
+         .section-header h2 {
+            font-size: 2.2rem;
          }
          
          .featured-banner .content h3 {
             font-size: 1.8rem;
+         }
+         
+         .product-price {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+         }
+         
+         .add-to-cart-btn {
+            width: 100%;
+            justify-content: center;
          }
       }
       
@@ -709,44 +830,16 @@ include 'components/wishlist_cart.php';
             font-size: 2.2rem;
          }
          
-         .heading {
+         .section-header h2 {
             font-size: 2rem;
          }
          
-         .products .box .btn {
-            width: calc(100% - 2rem);
-            margin: 0 1rem 1.5rem;
+         .products-grid {
+            grid-template-columns: 1fr;
          }
          
          .empty h3 {
             font-size: 1.8rem;
-         }
-      }
-  
-    
-      /* Updated for 4 products per row */
-      .box-container {
-         display: grid;
-         grid-template-columns: repeat(4, 1fr); /* 4 products per row */
-         gap: 2rem;
-      }
-      
-      /* Responsive adjustments for 4-column layout */
-      @media (max-width: 1200px) {
-         .box-container {
-            grid-template-columns: repeat(3, 1fr); /* 3 products per row on medium screens */
-         }
-      }
-      
-      @media (max-width: 900px) {
-         .box-container {
-            grid-template-columns: repeat(2, 1fr); /* 2 products per row on tablets */
-         }
-      }
-      
-      @media (max-width: 576px) {
-         .box-container {
-            grid-template-columns: 1fr; /* 1 product per row on mobile */
          }
       }
    </style>
@@ -768,23 +861,18 @@ include 'components/wishlist_cart.php';
    <div class="shop-hero-content">
       <h1>Discover Our Premium Collection</h1>
       <p>Elevate your style with electronic device for the modern lifestyle change</p>
-      <a href="#products" class="btn">Shop Now</a>
+      <a href="#featured-products" class="btn">Shop Now</a>
    </div>
 </section>
 
-<!-- Featured Banner -->
-<section class="products" id="products">
-   <div class="featured-banner">
-      <div class="content">
-         <h3>Seasonal Sale - Limited Time!</h3>
-         <p>Enjoy exclusive discounts on our curated collection. Offer ends soon.</p>
-      </div>
-      <a href="#" class="btn">Explore Offers</a>
+<!-- Featured Products Section -->
+<section class="featured-products" id="featured-products">
+   <div class="section-header">
+      <h2>Featured Products</h2>
+      <p>Discover our handpicked selection of premium products, carefully curated to elevate your shopping experience</p>
    </div>
 
-   <h1 class="heading">Featured Products</h1>
-
-   <div class="box-container">
+   <div class="products-grid">
 
    <?php
    $productManager = new Product($conn);
@@ -795,43 +883,71 @@ include 'components/wishlist_cart.php';
          $badge = $productManager->generateBadge();
          $prices = $productManager->calculateDiscountPrice($fetch_product['price'], $badge['type']);
          $rating_stars = $productManager->generateRating();
+         $rating_count = rand(15, 120);
+         
+         // Generate a random discount percentage for sale items
+         $discount_percent = '';
+         if($badge['type'] == 'sale') {
+            $discount_percent = '<span class="discount-percent">-' . rand(15, 30) . '%</span>';
+         }
    ?>
-   <form action="" method="post" class="box">
+   <form action="" method="post" class="product-card">
       <input type="hidden" name="pid" value="<?= htmlspecialchars($fetch_product['id']); ?>">
       <input type="hidden" name="name" value="<?= htmlspecialchars($fetch_product['name']); ?>">
       <input type="hidden" name="price" value="<?= htmlspecialchars($fetch_product['price']); ?>">
       <input type="hidden" name="image" value="<?= htmlspecialchars($fetch_product['image_01']); ?>">
       
-      <?= $badge['html'] ?>
-      
-      <div class="action-buttons">
-         <button class="fas fa-heart" type="submit" name="add_to_wishlist"></button>
-         <a href="quick_view.php?pid=<?= $fetch_product['id']; ?>" class="fas fa-eye"></a>
+      <div class="product-badge-container">
+         <?= $badge['html'] ?>
+         <?php if(rand(0, 1)): ?>
+            <span class="product-badge hot">HOT</span>
+         <?php endif; ?>
       </div>
       
-      <div class="image-container">
-         <img src="uploaded_img/<?= $fetch_product['image_01']; ?>" alt="<?= $fetch_product['name']; ?>">
+      <div class="product-image-container">
+         <img src="uploaded_img/<?= $fetch_product['image_01']; ?>" alt="<?= $fetch_product['name']; ?>" class="product-image">
+         
+         <div class="product-overlay">
+            <div class="product-actions">
+               <button type="submit" name="add_to_wishlist" class="action-btn">
+                  <i class="fas fa-heart"></i>
+               </button>
+               <a href="quick_view.php?pid=<?= $fetch_product['id']; ?>" class="action-btn">
+                  <i class="fas fa-eye"></i>
+               </a>
+            </div>
+         </div>
       </div>
       
       <div class="product-info">
-         <span class="category"><?= ucfirst($fetch_product['category'] ?? 'Fashion'); ?></span>
-         <a href="quick_view.php?pid=<?= $fetch_product['id']; ?>" class="name"><?= $fetch_product['name']; ?></a>
-         <div class="rating">
-            <?= $rating_stars ?> (<?= rand(15, 120); ?>)
+         <span class="product-category"><?= ucfirst($fetch_product['category'] ?? 'Electronics'); ?></span>
+         <a href="quick_view.php?pid=<?= $fetch_product['id']; ?>" class="product-name"><?= $fetch_product['name']; ?></a>
+         
+         <div class="product-rating">
+            <div class="stars">
+               <?= $rating_stars ?>
+            </div>
+            <span class="rating-count">(<?= $rating_count; ?>)</span>
          </div>
          
-         <div class="flex">
-            <div class="price">
-               रु-<?= $productManager->formatPrice($prices['discount']); ?>
-               <?php if($prices['original']): ?>
-                  <span>रु-<?= $prices['original']; ?></span>
-               <?php endif; ?>
-            </div>
-            <input type="number" name="qty" class="qty" min="1" max="99" onkeypress="if(this.value.length == 2) return false;" value="1">
+         <div class="quantity-selector">
+            <button type="button" class="qty-btn minus">-</button>
+            <input type="number" name="qty" class="qty-input" min="1" max="99" value="1">
+            <button type="button" class="qty-btn plus">+</button>
          </div>
       </div>
       
-      <button type="submit" class="btn" name="add_to_cart">
+      <div class="product-price">
+         <div class="price-container">
+            <span class="current-price">रु-<?= $productManager->formatPrice($prices['discount']); ?></span>
+            <?php if($prices['original']): ?>
+               <span class="original-price">रु-<?= $prices['original']; ?></span>
+            <?php endif; ?>
+         </div>
+         <?= $discount_percent ?>
+      </div>
+      
+      <button type="submit" class="add-to-cart-btn" name="add_to_cart">
          <i class="fas fa-shopping-cart"></i> Add to Cart
       </button>
    </form>
@@ -858,6 +974,17 @@ include 'components/wishlist_cart.php';
    </div>
 </section>
 
+<!-- Featured Banner -->
+<div class="container">
+   <div class="featured-banner">
+      <div class="content">
+         <h3>Seasonal Sale - Limited Time!</h3>
+         <p>Enjoy exclusive discounts on our curated collection. Offer ends soon.</p>
+      </div>
+      <a href="#" class="btn">Explore Offers</a>
+   </div>
+</div>
+
 <?php include 'components/footer.php'; ?>
 
 <script src="js/script.js"></script>
@@ -881,8 +1008,30 @@ include 'components/wishlist_cart.php';
          }, 3500);
       }
       
+      // Quantity buttons functionality
+      document.querySelectorAll('.qty-btn').forEach(button => {
+         button.addEventListener('click', function() {
+            const input = this.parentElement.querySelector('.qty-input');
+            let value = parseInt(input.value);
+            
+            if(this.classList.contains('plus')) {
+               if(value < 99) input.value = value + 1;
+            } else {
+               if(value > 1) input.value = value - 1;
+            }
+         });
+      });
+      
+      // Quantity input validation
+      document.querySelectorAll('.qty-input').forEach(input => {
+         input.addEventListener('change', function() {
+            if(this.value < 1) this.value = 1;
+            if(this.value > 99) this.value = 99;
+         });
+      });
+      
       // Add animation on scroll
-      const elements = document.querySelectorAll('.box, .category-btn, .featured-banner, .shop-hero-content');
+      const elements = document.querySelectorAll('.product-card, .section-header, .featured-banner');
       
       const observer = new IntersectionObserver((entries) => {
          entries.forEach(entry => {
@@ -900,33 +1049,10 @@ include 'components/wishlist_cart.php';
          observer.observe(el);
       });
       
-      // Stagger animation for product boxes
-      const boxes = document.querySelectorAll('.box');
-      boxes.forEach((box, index) => {
-         box.style.transitionDelay = `${index * 0.1}s`;
-      });
-      
-      // Quantity input validation
-      const quantityInputs = document.querySelectorAll('.qty');
-      quantityInputs.forEach(input => {
-         input.addEventListener('change', function() {
-            if(this.value < 1) this.value = 1;
-            if(this.value > 99) this.value = 99;
-         });
-      });
-      
-      // Form submission handling
-      const forms = document.querySelectorAll('form.box');
-      forms.forEach(form => {
-         form.addEventListener('submit', function(e) {
-            const qtyInput = this.querySelector('input[name="qty"]');
-            if(qtyInput.value < 1 || qtyInput.value > 99) {
-               e.preventDefault();
-               alert('Please enter a valid quantity (1-99)');
-               qtyInput.focus();
-               return;
-            }
-         });
+      // Stagger animation for product cards
+      const cards = document.querySelectorAll('.product-card');
+      cards.forEach((card, index) => {
+         card.style.transitionDelay = `${index * 0.1}s`;
       });
    });
 </script>
