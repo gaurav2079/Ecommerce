@@ -1023,7 +1023,23 @@ include 'components/wishlist_cart.php';
            
            foreach ($products as $product) {
                error_log("Displaying product ID: " . $product['id'] . " - " . $product['name']);
-               echo ProductRenderer::renderProduct($product);
+               
+               // Create simplified product display without wishlist, price, and quick view
+               $availability = ($product['quantity'] > 0) ? 'In Stock' : 'Out of Stock';
+               $availabilityClass = ($product['quantity'] > 0) ? 'in-stock' : 'out-of-stock';
+               
+               echo '
+               <div class="swiper-slide slide animate__animated animate__fadeIn">
+                   <div class="image">
+                       <img src="uploaded_img/' . $product['image_01'] . '" 
+                            alt="' . htmlspecialchars($product['name']) . '"
+                            onerror="this.src=\'../images/default-product.jpg\'">
+                   </div>
+                   <div class="content">
+                       <h3>' . htmlspecialchars($product['name']) . '</h3>
+                       
+                   </div>
+               </div>';
            }
            
            echo '</div>

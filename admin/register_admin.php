@@ -3,42 +3,81 @@ include '../components/connect.php';
 
 session_start();
 
-$admin_id = $_SESSION['admin_id'];
+class AdminRegistration {
+    private $conn;
+    private $admin_id;
+    private $messages = [];
 
-if(!isset($admin_id)){
-   header('location:admin_login.php');
+    public function __construct($conn) {
+        $this->conn = $conn;
+        $this->checkAdminSession();
+    }
+
+    private function checkAdminSession() {
+        $this->admin_id = $_SESSION['admin_id'] ?? null;
+        if (!$this->admin_id) {
+            header('location:admin_login.php');
+            exit();
+        }
+    }
+
+    public function handleRegistration() {
+        if (isset($_POST['submit'])) {
+            $name = $this->sanitizeInput($_POST['name']);
+            $pass = $this->sanitizeInput(sha1($_POST['pass']));
+            $cpass = $this->sanitizeInput(sha1($_POST['cpass']));
+            
+            if ($this->validateInputs($name, $_POST['pass'], $_POST['cpass'])) {
+                $this->registerAdmin($name, $pass);
+            }
+        }
+    }
+
+    private function sanitizeInput($input) {
+        return filter_var($input, FILTER_SANITIZE_STRING);
+    }
+
+    private function validateInputs($name, $pass, $cpass) {
+        if (strlen($name) < 4 || strlen($name) > 20) {
+            $this->messages[] = 'Username must be 4-20 characters!';
+            return false;
+        } 
+        
+        if (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\d\s]).{6,}$/', $pass)) {
+            $this->messages[] = 'Password must contain at least 1 uppercase, 1 lowercase, 1 number, and 1 special character!';
+            return false;
+        }
+        
+        if ($pass != $cpass) {
+            $this->messages[] = 'Passwords do not match!';
+            return false;
+        }
+        
+        return true;
+    }
+
+    private function registerAdmin($name, $password) {
+        $select_admin = $this->conn->prepare("SELECT * FROM `admins` WHERE name = ?");
+        $select_admin->execute([$name]);
+
+        if ($select_admin->rowCount() > 0) {
+            $this->messages[] = 'Username already exists!';
+        } else {
+            $insert_admin = $this->conn->prepare("INSERT INTO `admins`(name, password) VALUES(?,?)");
+            $insert_admin->execute([$name, $password]);
+            $this->messages[] = 'New admin registered successfully!';
+        }
+    }
+
+    public function getMessages() {
+        return $this->messages;
+    }
 }
 
-if(isset($_POST['submit'])){
-   $name = $_POST['name'];
-   $name = filter_var($name, FILTER_SANITIZE_STRING);
-   $pass = sha1($_POST['pass']);
-   $pass = filter_var($pass, FILTER_SANITIZE_STRING);
-   $cpass = sha1($_POST['cpass']);
-   $cpass = filter_var($cpass, FILTER_SANITIZE_STRING);
-
-   // Enhanced validation
-   if(strlen($name) < 4 || strlen($name) > 20) {
-      $message[] = 'Username must be 4-20 characters!';
-   } 
-   elseif(!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\d\s]).{6,}$/', $_POST['pass'])) {
-      $message[] = 'Password must contain at least 1 uppercase, 1 lowercase, 1 number, and 1 special character!';
-   }
-   elseif($_POST['pass'] != $_POST['cpass']) {
-      $message[] = 'Passwords do not match!';
-   } else {
-      $select_admin = $conn->prepare("SELECT * FROM `admins` WHERE name = ?");
-      $select_admin->execute([$name]);
-
-      if($select_admin->rowCount() > 0){
-         $message[] = 'Username already exists!';
-      } else {
-         $insert_admin = $conn->prepare("INSERT INTO `admins`(name, password) VALUES(?,?)");
-         $insert_admin->execute([$name, $cpass]);
-         $message[] = 'New admin registered successfully!';
-      }
-   }
-}
+// Initialize the registration handler
+$adminRegistration = new AdminRegistration($conn);
+$adminRegistration->handleRegistration();
+$messages = $adminRegistration->getMessages();
 ?>
 
 <!DOCTYPE html>
@@ -248,8 +287,8 @@ if(isset($_POST['submit'])){
       <h1>Create Admin Account</h1>
       
       <?php
-      if(isset($message)){
-         foreach($message as $msg){
+      if(isset($messages)){
+         foreach($messages as $msg){
             $msgClass = strpos($msg, 'successfully') !== false ? 'success' : 'error';
             echo '<div class="message '.$msgClass.'">'.$msg.'</div>';
          }

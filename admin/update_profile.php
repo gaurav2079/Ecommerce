@@ -11,42 +11,99 @@ if (!isset($admin_id)) {
    exit;
 }
 
-// Fetch current admin profile
-$fetch_profile = $conn->prepare("SELECT * FROM `admins` WHERE id = ?");
-$fetch_profile->execute([$admin_id]);
-$fetch_profile = $fetch_profile->fetch(PDO::FETCH_ASSOC);
+// Admin Profile Manager Class
+class AdminProfileManager {
+    private $conn;
+    private $admin_id;
+    private $messages = [];
 
-$messages = [];
+    public function __construct($conn, $admin_id) {
+        $this->conn = $conn;
+        $this->admin_id = $admin_id;
+    }
 
-if (isset($_POST['submit'])) {
+    public function fetchProfile() {
+        $fetch_profile = $this->conn->prepare("SELECT * FROM `admins` WHERE id = ?");
+        $fetch_profile->execute([$this->admin_id]);
+        return $fetch_profile->fetch(PDO::FETCH_ASSOC);
+    }
 
-   $name = filter_var($_POST['name'], FILTER_SANITIZE_STRING);
+    public function updateProfile($post_data) {
+        $name = filter_var($post_data['name'], FILTER_SANITIZE_STRING);
 
-   // Update name
-   $update_profile_name = $conn->prepare("UPDATE `admins` SET name = ? WHERE id = ?");
-   $update_profile_name->execute([$name, $admin_id]);
-   $messages[] = 'Username updated successfully!';
+        // Update name
+        $update_profile_name = $this->conn->prepare("UPDATE `admins` SET name = ? WHERE id = ?");
+        $update_profile_name->execute([$name, $this->admin_id]);
+        $this->messages[] = 'Username updated successfully!';
 
-   $empty_pass = sha1('');
-   $prev_pass = $_POST['prev_pass'];
-   $old_pass = filter_var(sha1($_POST['old_pass']), FILTER_SANITIZE_STRING);
-   $new_pass = filter_var(sha1($_POST['new_pass']), FILTER_SANITIZE_STRING);
-   $confirm_pass = filter_var(sha1($_POST['confirm_pass']), FILTER_SANITIZE_STRING);
+        $this->handlePasswordUpdate($post_data);
+    }
 
-   if ($_POST['old_pass'] != '') {
-      if ($old_pass != $prev_pass) {
-         $messages[] = 'Old password not matched!';
-      } elseif ($_POST['new_pass'] == '') {
-         $messages[] = 'Please enter a new password!';
-      } elseif ($new_pass != $confirm_pass) {
-         $messages[] = 'Confirm password not matched!';
-      } else {
-         $update_pass = $conn->prepare("UPDATE `admins` SET password = ? WHERE id = ?");
-         $update_pass->execute([$confirm_pass, $admin_id]);
-         $messages[] = 'Password updated successfully!';
-      }
-   }
+    private function handlePasswordUpdate($post_data) {
+        $empty_pass = sha1('');
+        $prev_pass = $post_data['prev_pass'];
+        $old_pass = filter_var(sha1($post_data['old_pass']), FILTER_SANITIZE_STRING);
+        $new_pass = filter_var(sha1($post_data['new_pass']), FILTER_SANITIZE_STRING);
+        $confirm_pass = filter_var(sha1($post_data['confirm_pass']), FILTER_SANITIZE_STRING);
+
+        if ($post_data['old_pass'] != '') {
+            if ($old_pass != $prev_pass) {
+                $this->messages[] = 'Old password not matched!';
+            } elseif ($post_data['new_pass'] == '') {
+                $this->messages[] = 'Please enter a new password!';
+            } elseif ($new_pass != $confirm_pass) {
+                $this->messages[] = 'Confirm password not matched!';
+            } else {
+                $update_pass = $this->conn->prepare("UPDATE `admins` SET password = ? WHERE id = ?");
+                $update_pass->execute([$confirm_pass, $this->admin_id]);
+                $this->messages[] = 'Password updated successfully!';
+            }
+        }
+    }
+
+    public function getMessages() {
+        return $this->messages;
+    }
 }
+
+// Password Validator Class
+class PasswordValidator {
+    public static function validate($new_pass, $confirm_pass) {
+        if ($new_pass !== $confirm_pass) {
+            return "New password and confirm password do not match!";
+        }
+
+        if ($new_pass.length > 0 && $new_pass.length < 6) {
+            return "New password must be at least 6 characters long!";
+        }
+
+        return null;
+    }
+}
+
+// Form Handler Class
+class FormHandler {
+    private $profile_manager;
+
+    public function __construct($profile_manager) {
+        $this->profile_manager = $profile_manager;
+    }
+
+    public function handleRequest() {
+        if (isset($_POST['submit'])) {
+            $this->profile_manager->updateProfile($_POST);
+        }
+    }
+}
+
+// Initialize objects and handle request
+$profile_manager = new AdminProfileManager($conn, $admin_id);
+$form_handler = new FormHandler($profile_manager);
+$form_handler->handleRequest();
+
+$fetch_profile = $profile_manager->fetchProfile();
+$messages = $profile_manager->getMessages();
+
 ?>
 
 <!DOCTYPE html>

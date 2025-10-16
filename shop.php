@@ -16,11 +16,18 @@ class Product {
         $this->conn = $connection;
     }
     
-    public function getProducts($limit = 12) {
-        $select_products = $this->conn->prepare("SELECT * FROM `products` LIMIT ?");
+    public function getProducts($limit = 12, $offset = 0) {
+        $select_products = $this->conn->prepare("SELECT * FROM `products` LIMIT ? OFFSET ?");
         $select_products->bindValue(1, $limit, PDO::PARAM_INT);
+        $select_products->bindValue(2, $offset, PDO::PARAM_INT);
         $select_products->execute();
         return $select_products;
+    }
+    
+    public function getTotalProducts() {
+        $select_total = $this->conn->prepare("SELECT COUNT(*) as total FROM `products`");
+        $select_total->execute();
+        return $select_total->fetch(PDO::FETCH_ASSOC)['total'];
     }
     
     public function formatPrice($price) {
@@ -116,6 +123,99 @@ if(isset($_POST['add_to_cart'])){
         $_POST['image'], 
         $_POST['qty']
     );
+}
+
+// Handle AJAX load more products
+if(isset($_POST['action']) && $_POST['action'] == 'load_more_products') {
+    $offset = isset($_POST['offset']) ? intval($_POST['offset']) : 0;
+    $limit = 4; // Load 4 products at a time
+    
+    $productManager = new Product($conn);
+    $products = $productManager->getProducts($limit, $offset);
+    $totalProducts = $productManager->getTotalProducts();
+    
+    $html = '';
+    if($products->rowCount() > 0){
+        while($fetch_product = $products->fetch(PDO::FETCH_ASSOC)){
+            $badge = $productManager->generateBadge();
+            $prices = $productManager->calculateDiscountPrice($fetch_product['price'], $badge['type']);
+            $rating_stars = $productManager->generateRating();
+            $rating_count = rand(15, 120);
+            
+            // Generate a random discount percentage for sale items
+            $discount_percent = '';
+            if($badge['type'] == 'sale') {
+                $discount_percent = '<span class="discount-percent">-' . rand(15, 30) . '%</span>';
+            }
+            
+            $html .= '
+            <form action="" method="post" class="product-card">
+                <input type="hidden" name="pid" value="'.htmlspecialchars($fetch_product['id']).'">
+                <input type="hidden" name="name" value="'.htmlspecialchars($fetch_product['name']).'">
+                <input type="hidden" name="price" value="'.htmlspecialchars($fetch_product['price']).'">
+                <input type="hidden" name="image" value="'.htmlspecialchars($fetch_product['image_01']).'">
+                
+                <div class="product-badge-container">
+                    '.$badge['html'].'
+                    '.(rand(0, 1) ? '<span class="product-badge hot">HOT</span>' : '').'
+                </div>
+                
+                <div class="product-image-container">
+                    <img src="uploaded_img/'.$fetch_product['image_01'].'" alt="'.$fetch_product['name'].'" class="product-image">
+                    
+                    <div class="product-overlay">
+                        <div class="product-actions">
+                            <button type="submit" name="add_to_wishlist" class="action-btn">
+                                <i class="fas fa-heart"></i>
+                            </button>
+                            <a href="quick_view.php?pid='.$fetch_product['id'].'" class="action-btn">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="product-info">
+                    <span class="product-category">'.ucfirst($fetch_product['category'] ?? 'Electronics').'</span>
+                    <a href="quick_view.php?pid='.$fetch_product['id'].'" class="product-name">'.$fetch_product['name'].'</a>
+                    
+                    <div class="product-rating">
+                        <div class="stars">
+                            '.$rating_stars.'
+                        </div>
+                        <span class="rating-count">('.$rating_count.')</span>
+                    </div>
+                    
+                    <div class="quantity-selector">
+                        <button type="button" class="qty-btn minus">-</button>
+                        <input type="number" name="qty" class="qty-input" min="1" max="99" value="1">
+                        <button type="button" class="qty-btn plus">+</button>
+                    </div>
+                </div>
+                
+                <div class="product-price">
+                    <div class="price-container">
+                        <span class="current-price">रु-'.$productManager->formatPrice($prices['discount']).'</span>
+                        '.($prices['original'] ? '<span class="original-price">रु-'.$prices['original'].'</span>' : '').'
+                    </div>
+                    '.$discount_percent.'
+                </div>
+                
+                <button type="submit" class="add-to-cart-btn" name="add_to_cart">
+                    <i class="fas fa-shopping-cart"></i> Add to Cart
+                </button>
+            </form>';
+        }
+    }
+    
+    $hasMore = ($offset + $limit) < $totalProducts;
+    
+    echo json_encode([
+        'html' => $html,
+        'hasMore' => $hasMore,
+        'offset' => $offset + $limit
+    ]);
+    exit;
 }
 
 include 'components/wishlist_cart.php';
@@ -300,6 +400,7 @@ include 'components/wishlist_cart.php';
          display: grid;
          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
          gap: 2.5rem;
+         position: relative;
       }
       
       .product-card {
@@ -561,6 +662,71 @@ include 'components/wishlist_cart.php';
          outline: none;
       }
       
+      /* Load More Button Container */
+      .load-more-container {
+         grid-column: 1 / -1;
+         display: flex;
+         justify-content: center;
+         align-items: center;
+         padding: 3rem 0;
+      }
+      
+      .load-more-btn {
+         display: inline-flex;
+         align-items: center;
+         gap: 10px;
+         padding: 1rem 2.5rem;
+         background: var(--primary);
+         color: white;
+         border: none;
+         border-radius: 50px;
+         font-weight: 600;
+         cursor: pointer;
+         transition: all 0.3s ease;
+         font-size: 1.1rem;
+         box-shadow: 0 5px 15px rgba(58, 12, 163, 0.2);
+      }
+      
+      .load-more-btn:hover {
+         background: var(--secondary);
+         transform: translateY(-3px);
+         box-shadow: 0 8px 20px rgba(247, 37, 133, 0.3);
+      }
+      
+      .load-more-btn:disabled {
+         background: #ccc !important;
+         cursor: not-allowed !important;
+         transform: none !important;
+         box-shadow: none !important;
+      }
+      
+      .load-more-btn:disabled:hover {
+         background: #ccc !important;
+         transform: none !important;
+         box-shadow: none !important;
+      }
+      
+      .load-more-btn.loading {
+         position: relative;
+         color: transparent;
+      }
+      
+      .load-more-btn.loading::after {
+         content: '';
+         position: absolute;
+         width: 20px;
+         height: 20px;
+         border: 2px solid transparent;
+         border-top: 2px solid white;
+         border-radius: 50%;
+         animation: spin 1s linear infinite;
+      }
+      
+      @keyframes spin {
+         0% { transform: rotate(0deg); }
+         100% { transform: rotate(360deg); }
+      }
+      
       /* Featured banner */
       .featured-banner {
          background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
@@ -661,36 +827,6 @@ include 'components/wishlist_cart.php';
       
       .notification i {
          font-size: 1.5rem;
-      }
-      
-      /* Load more button */
-      .load-more {
-         text-align: center;
-         margin-top: 5rem;
-      }
-      
-      .load-more .btn {
-         display: inline-block;
-         padding: 1rem 3rem;
-         background: var(--primary);
-         color: white;
-         border-radius: 50px;
-         font-weight: 600;
-         transition: all 0.3s ease;
-         font-size: 1.1rem;
-         border: none;
-         cursor: pointer;
-         box-shadow: 0 5px 15px rgba(58, 12, 163, 0.2);
-      }
-      
-      .load-more .btn:hover {
-         background: var(--secondary);
-         transform: translateY(-3px);
-         box-shadow: 0 10px 25px rgba(247, 37, 133, 0.3);
-      }
-      
-      .load-more .btn i {
-         margin-right: 10px;
       }
       
       /* Empty state */
@@ -872,13 +1008,16 @@ include 'components/wishlist_cart.php';
       <p>Discover our handpicked selection of premium products, carefully curated to elevate your shopping experience</p>
    </div>
 
-   <div class="products-grid">
+   <div class="products-grid" id="products-container">
 
    <?php
    $productManager = new Product($conn);
-   $products = $productManager->getProducts(12);
+   // Load initial 4 products
+   $products = $productManager->getProducts(4, 0);
+   $totalProducts = $productManager->getTotalProducts();
    
    if($products->rowCount() > 0){
+      $count = 0;
       while($fetch_product = $products->fetch(PDO::FETCH_ASSOC)){
          $badge = $productManager->generateBadge();
          $prices = $productManager->calculateDiscountPrice($fetch_product['price'], $badge['type']);
@@ -952,6 +1091,23 @@ include 'components/wishlist_cart.php';
       </button>
    </form>
    <?php
+         $count++;
+      }
+      
+      // Always show the Load More button, but disable it if no more products
+      if($totalProducts > 4) {
+         echo '<div class="load-more-container" id="load-more-container">
+                  <button class="load-more-btn" id="load-more-btn" data-offset="4">
+                     <i class="fas fa-sync-alt"></i> Load More Products
+                  </button>
+               </div>';
+      } else {
+         // Still show the button but disabled if there are no more products
+         echo '<div class="load-more-container" id="load-more-container">
+                  <button class="load-more-btn" id="load-more-btn" data-offset="4" disabled>
+                     <i class="fas fa-check"></i> All Products Loaded
+                  </button>
+               </div>';
       }
    } else {
       echo '
@@ -964,13 +1120,6 @@ include 'components/wishlist_cart.php';
    }
    ?>
 
-   </div>
-   
-   <!-- Load More Button -->
-   <div class="load-more">
-      <button class="btn">
-         <i class="fas fa-sync-alt"></i> Load More Products
-      </button>
    </div>
 </section>
 
@@ -1054,6 +1203,113 @@ include 'components/wishlist_cart.php';
       cards.forEach((card, index) => {
          card.style.transitionDelay = `${index * 0.1}s`;
       });
+      
+      // Load More functionality
+      const loadMoreBtn = document.getElementById('load-more-btn');
+      if(loadMoreBtn && !loadMoreBtn.disabled) {
+         loadMoreBtn.addEventListener('click', function() {
+            const offset = parseInt(this.getAttribute('data-offset'));
+            const btn = this;
+            
+            // Show loading state
+            btn.classList.add('loading');
+            btn.disabled = true;
+            
+            // Make AJAX request
+            fetch('', {
+               method: 'POST',
+               headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+               },
+               body: 'action=load_more_products&offset=' + offset
+            })
+            .then(response => response.json())
+            .then(data => {
+               // Remove loading state
+               btn.classList.remove('loading');
+               btn.disabled = false;
+               
+               if(data.html) {
+                  // Create temporary container to hold new products
+                  const tempDiv = document.createElement('div');
+                  tempDiv.innerHTML = data.html;
+                  
+                  // Get the load more container
+                  const loadMoreContainer = document.getElementById('load-more-container');
+                  
+                  // Insert new products before the load more button
+                  const productsContainer = document.getElementById('products-container');
+                  productsContainer.insertBefore(tempDiv, loadMoreContainer);
+                  
+                  // Update offset
+                  btn.setAttribute('data-offset', data.offset);
+                  
+                  // If no more products, disable the button but don't remove it
+                  if(!data.hasMore) {
+                     btn.disabled = true;
+                     btn.innerHTML = '<i class="fas fa-check"></i> All Products Loaded';
+                  }
+                  
+                  // Re-initialize quantity buttons for new products
+                  initializeQuantityButtons();
+                  
+                  // Animate new products
+                  animateNewProducts();
+               }
+            })
+            .catch(error => {
+               console.error('Error:', error);
+               btn.classList.remove('loading');
+               btn.disabled = false;
+            });
+         });
+      }
+      
+      function initializeQuantityButtons() {
+         // Quantity buttons functionality for newly loaded products
+         document.querySelectorAll('.qty-btn').forEach(button => {
+            if(!button.hasAttribute('data-initialized')) {
+               button.setAttribute('data-initialized', 'true');
+               button.addEventListener('click', function() {
+                  const input = this.parentElement.querySelector('.qty-input');
+                  let value = parseInt(input.value);
+                  
+                  if(this.classList.contains('plus')) {
+                     if(value < 99) input.value = value + 1;
+                  } else {
+                     if(value > 1) input.value = value - 1;
+                  }
+               });
+            }
+         });
+         
+         // Quantity input validation for newly loaded products
+         document.querySelectorAll('.qty-input').forEach(input => {
+            if(!input.hasAttribute('data-initialized')) {
+               input.setAttribute('data-initialized', 'true');
+               input.addEventListener('change', function() {
+                  if(this.value < 1) this.value = 1;
+                  if(this.value > 99) this.value = 99;
+               });
+            }
+         });
+      }
+      
+      function animateNewProducts() {
+         const newProducts = document.querySelectorAll('.product-card:not([data-animated])');
+         newProducts.forEach((card, index) => {
+            card.setAttribute('data-animated', 'true');
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(30px)';
+            card.style.transition = 'all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            card.style.transitionDelay = `${index * 0.1}s`;
+            
+            setTimeout(() => {
+               card.style.opacity = '1';
+               card.style.transform = 'translateY(0)';
+            }, 100);
+         });
+      }
    });
 </script>
 

@@ -58,63 +58,34 @@ class ProductManager {
             return false;
         }
         
-        // Check if contains only letters, spaces, and basic punctuation
-        if (!preg_match('/^[a-zA-Z\s\-\'\.\,]+$/', $name)) {
-            $this->addFormError('name', 'Product name can only contain letters, spaces, hyphens, apostrophes, commas, and periods');
+        return true;
+    }
+    
+    public function validateProductPrice($price) {
+        // Check if empty
+        if (empty($price)) {
+            $this->addFormError('price', 'Product price is required');
             return false;
         }
         
-        // Check if product already exists
-        $select_products = $this->conn->prepare("SELECT * FROM `products` WHERE name = ?");
-        $select_products->execute([$name]);
+        // Check if it's a valid number
+        if (!is_numeric($price)) {
+            $this->addFormError('price', 'Product price must be a valid number');
+            return false;
+        }
         
-        if($select_products->rowCount() > 0){
-            $this->addFormError('name', 'Product name already exists!');
+        // Convert to float for further validation
+        $price_float = (float)$price;
+        
+        // Check if price is at least 1
+        if ($price_float < 1) {
+            $this->addFormError('price', 'Product price must be at least ₹1');
             return false;
         }
         
         return true;
     }
     
-    public function validateProductPrice($price) {
-    // Check if empty
-    if (empty($price)) {
-        $this->addFormError('price', 'Product price is required');
-        return false;
-    }
-    
-    // Decode URL encoding to catch + symbols that were encoded as spaces
-    $decoded_price = urldecode($price);
-    
-    // Check if value contains + or - symbols
-    if (strpos($decoded_price, '-') !== false || strpos($decoded_price, '+') !== false) {
-        $this->addFormError('price', 'Product price cannot contain + or - symbols');
-        return false;
-    }
-    
-    // Check if it's a valid number (allowing decimal points)
-    if (!preg_match('/^\d+(\.\d{1,2})?$/', $decoded_price)) {
-        $this->addFormError('price', 'Product price must be a valid number');
-        return false;
-    }
-    
-    // Convert to float for further validation
-    $price_float = (float)$decoded_price;
-    
-    // Check if price is at least 1
-    if ($price_float < 1) {
-        $this->addFormError('price', 'Product price must be at least ₹1');
-        return false;
-    }
-    
-    // Check if price is reasonable (less than 10 million)
-    if ($price_float > 10000000) {
-        $this->addFormError('price', 'Product price must be less than ₹10,000,000');
-        return false;
-    }
-    
-    return true;
-}
     public function validateProductDetails($details) {
         // Remove extra spaces
         $details = trim($details);
@@ -131,9 +102,35 @@ class ProductManager {
             return false;
         }
         
-        // Check maximum length
-        if (strlen($details) > 500) {
-            $this->addFormError('details', 'Product details must be less than 500 characters');
+        return true;
+    }
+    
+    public function validateStock($stock) {
+        // Check if empty
+        if (empty($stock)) {
+            $this->addFormError('stock', 'Product stock is required');
+            return false;
+        }
+        
+        // Check if it's a valid integer
+        if (!filter_var($stock, FILTER_VALIDATE_INT) || $stock < 0) {
+            $this->addFormError('stock', 'Stock must be a valid positive integer');
+            return false;
+        }
+        
+        return true;
+    }
+    
+    public function validateQuantity($quantity) {
+        // Check if empty
+        if (empty($quantity)) {
+            $this->addFormError('quantity', 'Product quantity is required');
+            return false;
+        }
+        
+        // Check if it's a valid integer
+        if (!filter_var($quantity, FILTER_VALIDATE_INT) || $quantity < 0) {
+            $this->addFormError('quantity', 'Quantity must be a valid positive integer');
             return false;
         }
         
@@ -155,20 +152,7 @@ class ProductManager {
                 
                 // Check for upload errors
                 if ($image_error !== UPLOAD_ERR_OK) {
-                    switch ($image_error) {
-                        case UPLOAD_ERR_INI_SIZE:
-                        case UPLOAD_ERR_FORM_SIZE:
-                            $upload_errors[$field] = 'File size is too large';
-                            break;
-                        case UPLOAD_ERR_PARTIAL:
-                            $upload_errors[$field] = 'File was only partially uploaded';
-                            break;
-                        case UPLOAD_ERR_NO_FILE:
-                            $upload_errors[$field] = 'No file was uploaded';
-                            break;
-                        default:
-                            $upload_errors[$field] = 'Unknown upload error';
-                    }
+                    $upload_errors[$field] = 'File upload error: ' . $image_error;
                     continue;
                 }
                 
@@ -184,17 +168,6 @@ class ProductManager {
                 
                 if(!in_array($file_extension, $allowed_extensions)){
                     $upload_errors[$field] = 'Invalid file type. Only JPG, JPEG, PNG, WEBP allowed';
-                    continue;
-                }
-                
-                // Validate MIME type
-                $finfo = finfo_open(FILEINFO_MIME_TYPE);
-                $mime_type = finfo_file($finfo, $image_tmp_name);
-                finfo_close($finfo);
-                
-                $allowed_mime_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-                if (!in_array($mime_type, $allowed_mime_types)) {
-                    $upload_errors[$field] = 'Invalid file type. Only images are allowed';
                     continue;
                 }
                 
@@ -214,7 +187,7 @@ class ProductManager {
         return $image_names;
     }
     
-    public function addProduct($name, $price, $details, $files) {
+    public function addProduct($name, $price, $details, $stock, $quantity, $files) {
         // Reset form errors
         $this->formErrors = [];
         
@@ -222,35 +195,68 @@ class ProductManager {
         $isNameValid = $this->validateProductName($name);
         $isPriceValid = $this->validateProductPrice($price);
         $isDetailsValid = $this->validateProductDetails($details);
+        $isStockValid = $this->validateStock($stock);
+        $isQuantityValid = $this->validateQuantity($quantity);
         $image_names = $this->validateProductImages($files);
         
+        // Debug: Check what's being validated
+        error_log("Validation - Name: $isNameValid, Price: $isPriceValid, Details: $isDetailsValid, Stock: $isStockValid, Quantity: $isQuantityValid, Images: " . ($image_names ? 'valid' : 'invalid'));
+        
         // If any validation failed, return false
-        if (!$isNameValid || !$isPriceValid || !$isDetailsValid || $image_names === false) {
+        if (!$isNameValid || !$isPriceValid || !$isDetailsValid || !$isStockValid || !$isQuantityValid || $image_names === false) {
+            error_log("Validation failed. Errors: " . print_r($this->formErrors, true));
             return false;
         }
         
         // If all validations passed, proceed with database insertion
         try {
-            $insert_products = $this->conn->prepare("INSERT INTO `products`(name, details, price, image_01, image_02, image_03) VALUES(?,?,?,?,?,?)");
-            $insert_products->execute([
+            $insert_products = $this->conn->prepare("INSERT INTO `products` (name, details, price, stock, quantity, image_01, image_02, image_03, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')");
+            
+            $insert_result = $insert_products->execute([
                 $name, 
                 $details, 
                 $price, 
+                $stock,
+                $quantity,
                 $image_names['image_01'], 
                 $image_names['image_02'], 
                 $image_names['image_03']
             ]);
             
-            // Move uploaded files
-            $image_fields = ['image_01', 'image_02', 'image_03'];
-            foreach($image_fields as $field){
-                move_uploaded_file($files[$field]['tmp_name'], '../uploaded_img/'.$image_names[$field]);
+            if ($insert_result) {
+                // Create uploaded_img directory if it doesn't exist
+                $upload_dir = '../uploaded_img/';
+                if (!is_dir($upload_dir)) {
+                    mkdir($upload_dir, 0755, true);
+                }
+                
+                // Move uploaded files
+                $image_fields = ['image_01', 'image_02', 'image_03'];
+                foreach($image_fields as $field){
+                    $source = $files[$field]['tmp_name'];
+                    $destination = $upload_dir . $image_names[$field];
+                    
+                    if (is_uploaded_file($source)) {
+                        if (!move_uploaded_file($source, $destination)) {
+                            error_log("Failed to move uploaded file: $source to $destination");
+                        }
+                    } else {
+                        error_log("File not uploaded properly: $source");
+                    }
+                }
+                
+                $this->addMessage('New product added successfully!', 'success');
+                error_log("Product added successfully: $name");
+                return true;
+            } else {
+                $errorInfo = $insert_products->errorInfo();
+                $this->addMessage('Failed to add product to database: ' . $errorInfo[2], 'error');
+                error_log("Database error: " . print_r($errorInfo, true));
+                return false;
             }
-            
-            $this->addMessage('New product added successfully!', 'success');
-            return true;
         } catch(PDOException $e) {
             $this->addMessage('Error adding product: ' . $e->getMessage(), 'error');
+            error_log("PDO Exception: " . $e->getMessage());
             return false;
         }
     }
@@ -283,13 +289,6 @@ class ProductManager {
             $delete_product = $this->conn->prepare("DELETE FROM `products` WHERE id = ?");
             $delete_product->execute([$product_id]);
             
-            // Delete from related tables
-            $delete_cart = $this->conn->prepare("DELETE FROM `cart` WHERE pid = ?");
-            $delete_cart->execute([$product_id]);
-            
-            $delete_wishlist = $this->conn->prepare("DELETE FROM `wishlist` WHERE pid = ?");
-            $delete_wishlist->execute([$product_id]);
-            
             $this->addMessage('Product deleted successfully!', 'success');
             return true;
         } catch(PDOException $e) {
@@ -299,9 +298,14 @@ class ProductManager {
     }
     
     public function getAllProducts() {
-        $select_products = $this->conn->prepare("SELECT * FROM `products` ORDER BY id DESC");
-        $select_products->execute();
-        return $select_products;
+        try {
+            $select_products = $this->conn->prepare("SELECT * FROM `products` ORDER BY id DESC");
+            $select_products->execute();
+            return $select_products;
+        } catch(PDOException $e) {
+            error_log("Error fetching products: " . $e->getMessage());
+            return false;
+        }
     }
 }
 
@@ -310,11 +314,21 @@ $productManager = new ProductManager($conn);
 
 // Handle form submissions
 if(isset($_POST['add_product'])){
-    $success = $productManager->addProduct($_POST['name'], $_POST['price'], $_POST['details'], $_FILES);
+    $success = $productManager->addProduct(
+        $_POST['name'] ?? '', 
+        $_POST['price'] ?? '', 
+        $_POST['details'] ?? '', 
+        $_POST['stock'] ?? '', 
+        $_POST['quantity'] ?? '', 
+        $_FILES
+    );
     
     // If product was added successfully, clear form values
     if ($success) {
         $_POST = array(); // Clear form data
+        // Redirect to avoid form resubmission
+        header('Location: products.php?success=1');
+        exit();
     }
 }
 
@@ -322,6 +336,11 @@ if(isset($_GET['delete'])){
     $productManager->deleteProduct($_GET['delete']);
     header('location:products.php');
     exit();
+}
+
+// Check for success parameter
+if(isset($_GET['success']) && $_GET['success'] == 1) {
+    $productManager->addMessage('New product added successfully!', 'success');
 }
 
 // Get messages and form errors for display
@@ -332,6 +351,8 @@ $formErrors = $productManager->getFormErrors();
 $nameValue = $_POST['name'] ?? '';
 $priceValue = $_POST['price'] ?? '';
 $detailsValue = $_POST['details'] ?? '';
+$stockValue = $_POST['stock'] ?? '';
+$quantityValue = $_POST['quantity'] ?? '';
 ?>
 
 <!DOCTYPE html>
@@ -343,6 +364,7 @@ $detailsValue = $_POST['details'] ?? '';
    <title>Products Management</title>
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
    <style>
+      /* Your existing CSS styles remain the same */
       :root {
          --primary: #4361ee;
          --primary-light: #4895ef;
@@ -679,34 +701,6 @@ $detailsValue = $_POST['details'] ?? '';
       @keyframes spin {
          to { transform: rotate(360deg); }
       }
-
-      @media (max-width: 768px) {
-         .box-container {
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-         }
-         
-         .add-products, .show-products {
-            padding: 1.5rem;
-         }
-         
-         body {
-            padding-top: 60px;
-         }
-      }
-
-      @media (max-width: 480px) {
-         .flex-btn {
-            flex-direction: column;
-         }
-         
-         .heading {
-            font-size: 1.5rem;
-         }
-         
-         .add-products form {
-            padding: 1.5rem;
-         }
-      }
    </style>
 </head>
 <body>
@@ -741,16 +735,30 @@ if(!empty($messages)){
       <div class="flex">
          <div class="inputBox">
             <span>Product Name (required)</span>
-            <input type="text" class="box <?php echo isset($formErrors['name']) ? 'error' : ''; ?>" required maxlength="100" placeholder="Enter product name" name="name" value="<?= htmlspecialchars($nameValue) ?>" oninput="validateProductName(this)">
+            <input type="text" class="box <?php echo isset($formErrors['name']) ? 'error' : ''; ?>" required maxlength="100" placeholder="Enter product name" name="name" value="<?= htmlspecialchars($nameValue) ?>">
             <?php if (isset($formErrors['name'])): ?>
                <span class="error-message"><?= $formErrors['name'] ?></span>
             <?php endif; ?>
          </div>
          <div class="inputBox">
             <span>Product Price (required)</span>
-            <input type="number" min="1" step="0.01" class="box <?php echo isset($formErrors['price']) ? 'error' : ''; ?>" required max="9999999999" placeholder="Enter product price" name="price" value="<?= htmlspecialchars($priceValue) ?>" oninput="validateProductPrice(this)">
+            <input type="number" min="1" step="0.01" class="box <?php echo isset($formErrors['price']) ? 'error' : ''; ?>" required placeholder="Enter product price" name="price" value="<?= htmlspecialchars($priceValue) ?>">
             <?php if (isset($formErrors['price'])): ?>
                <span class="error-message"><?= $formErrors['price'] ?></span>
+            <?php endif; ?>
+         </div>
+         <div class="inputBox">
+            <span>Stock (required)</span>
+            <input type="number" min="0" class="box <?php echo isset($formErrors['stock']) ? 'error' : ''; ?>" required placeholder="Enter product stock" name="stock" value="<?= htmlspecialchars($stockValue) ?>">
+            <?php if (isset($formErrors['stock'])): ?>
+               <span class="error-message"><?= $formErrors['stock'] ?></span>
+            <?php endif; ?>
+         </div>
+         <div class="inputBox">
+            <span>Quantity (required)</span>
+            <input type="number" min="0" class="box <?php echo isset($formErrors['quantity']) ? 'error' : ''; ?>" required placeholder="Enter product quantity" name="quantity" value="<?= htmlspecialchars($quantityValue) ?>">
+            <?php if (isset($formErrors['quantity'])): ?>
+               <span class="error-message"><?= $formErrors['quantity'] ?></span>
             <?php endif; ?>
          </div>
          <div class="inputBox">
@@ -758,48 +766,45 @@ if(!empty($messages)){
             <div class="file-input">
                <label class="file-input-label <?php echo isset($formErrors['image_01']) ? 'error' : ''; ?>">
                   <i class="fas fa-image"></i> Choose Image 01
-                  <input type="file" name="image_01" accept="image/jpg, image/jpeg, image/png, image/webp" class="box" required onchange="previewImage(this, 'preview-01'); validateImage(this, 'image_01')">
+                  <input type="file" name="image_01" accept="image/jpg, image/jpeg, image/png, image/webp" class="box" required>
                </label>
             </div>
             <?php if (isset($formErrors['image_01'])): ?>
                <span class="error-message"><?= $formErrors['image_01'] ?></span>
             <?php endif; ?>
-            <div class="file-preview" id="preview-01"></div>
          </div>
          <div class="inputBox">
             <span>Image 02 (required)</span>
             <div class="file-input">
                <label class="file-input-label <?php echo isset($formErrors['image_02']) ? 'error' : ''; ?>">
                   <i class="fas fa-image"></i> Choose Image 02
-                  <input type="file" name="image_02" accept="image/jpg, image/jpeg, image/png, image/webp" class="box" required onchange="previewImage(this, 'preview-02'); validateImage(this, 'image_02')">
+                  <input type="file" name="image_02" accept="image/jpg, image/jpeg, image/png, image/webp" class="box" required>
                </label>
             </div>
             <?php if (isset($formErrors['image_02'])): ?>
                <span class="error-message"><?= $formErrors['image_02'] ?></span>
             <?php endif; ?>
-            <div class="file-preview" id="preview-02"></div>
          </div>
          <div class="inputBox">
             <span>Image 03 (required)</span>
             <div class="file-input">
                <label class="file-input-label <?php echo isset($formErrors['image_03']) ? 'error' : ''; ?>">
                   <i class="fas fa-image"></i> Choose Image 03
-                  <input type="file" name="image_03" accept="image/jpg, image/jpeg, image/png, image/webp" class="box" required onchange="previewImage(this, 'preview-03'); validateImage(this, 'image_03')">
+                  <input type="file" name="image_03" accept="image/jpg, image/jpeg, image/png, image/webp" class="box" required>
                </label>
             </div>
             <?php if (isset($formErrors['image_03'])): ?>
                <span class="error-message"><?= $formErrors['image_03'] ?></span>
             <?php endif; ?>
-            <div class="file-preview" id="preview-03"></div>
          </div>
          <div class="inputBox">
             <span>Product Details (required)</span>
-            <textarea name="details" placeholder="Enter product details" class="box <?php echo isset($formErrors['details']) ? 'error' : ''; ?>" required maxlength="500" cols="30" rows="10" oninput="validateProductDetails(this)"><?= htmlspecialchars($detailsValue) ?></textarea>
+            <textarea name="details" placeholder="Enter product details" class="box <?php echo isset($formErrors['details']) ? 'error' : ''; ?>" required maxlength="500" cols="30" rows="10"><?= htmlspecialchars($detailsValue) ?></textarea>
             <?php if (isset($formErrors['details'])): ?>
                <span class="error-message"><?= $formErrors['details'] ?></span>
             <?php endif; ?>
             <div class="char-count" style="text-align: right; font-size: 0.8rem; color: #6c757d; margin-top: 5px;">
-               <span id="details-char-count">0</span>/500 characters
+               <span id="details-char-count"><?= strlen($detailsValue) ?></span>/500 characters
             </div>
          </div>
       </div>
@@ -815,7 +820,7 @@ if(!empty($messages)){
    <?php
       $products = $productManager->getAllProducts();
       
-      if($products->rowCount() > 0){
+      if($products && $products->rowCount() > 0){
          while($fetch_products = $products->fetch(PDO::FETCH_ASSOC)){ 
    ?>
    <div class="box">
@@ -836,21 +841,19 @@ if(!empty($messages)){
    ?>
    </div>
 </section>
+
 <script>
-   // Simple animation for the product boxes
+   // Update character count for details textarea
    document.addEventListener('DOMContentLoaded', function() {
-      const boxes = document.querySelectorAll('.box-container .box');
-      boxes.forEach((box, index) => {
-         box.style.opacity = '0';
-         box.style.transform = 'translateY(20px)';
-         box.style.transition = 'all 0.4s ease-out';
-         
-         setTimeout(() => {
-            box.style.opacity = '1';
-            box.style.transform = 'translateY(0)';
-         }, 100 * index);
-      });
+      const detailsTextarea = document.querySelector('textarea[name="details"]');
+      const charCount = document.getElementById('details-char-count');
       
+      if (detailsTextarea && charCount) {
+         detailsTextarea.addEventListener('input', function() {
+            charCount.textContent = this.value.length;
+         });
+      }
+
       // Auto-close messages after 5 seconds
       setTimeout(() => {
          document.querySelectorAll('.message').forEach(msg => {
@@ -859,282 +862,8 @@ if(!empty($messages)){
             setTimeout(() => msg.remove(), 500);
          });
       }, 5000);
-      
-      // Form submission handling
-      const form = document.getElementById('productForm');
-      const submitBtn = document.getElementById('submitBtn');
-      
-      if(form) {
-         form.addEventListener('submit', function() {
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = 'Adding Product <span class="loading"></span>';
-         });
-      }
-      
-      // Update character count for details textarea
-      const detailsTextarea = document.querySelector('textarea[name="details"]');
-      const charCount = document.getElementById('details-char-count');
-      
-      if (detailsTextarea && charCount) {
-         charCount.textContent = detailsTextarea.value.length;
-         
-         detailsTextarea.addEventListener('input', function() {
-            charCount.textContent = this.value.length;
-         });
-      }
-   });
-   
-   // Image preview function
-   function previewImage(input, previewId) {
-      const preview = document.getElementById(previewId);
-      preview.innerHTML = '';
-      
-      if (input.files && input.files[0]) {
-         const reader = new FileReader();
-         
-         reader.onload = function(e) {
-            const img = document.createElement('img');
-            img.src = e.target.result;
-            img.alt = 'Preview';
-            preview.appendChild(img);
-         }
-         
-         reader.readAsDataURL(input.files[0]);
-      }
-   }
-   
-   // Validation functions
-   function validateProductName(input) {
-      const value = input.value.trim();
-      const errorElement = input.nextElementSibling;
-      const nameRegex = /^[a-zA-Z\s\-\'\.\,]+$/;
-      
-      if (value === '') {
-         showError(input, 'Product name is required');
-         return false;
-      }
-      
-      if (value.length < 3) {
-         showError(input, 'Product name must be at least 3 characters long');
-         return false;
-      }
-      
-      if (value.length > 100) {
-         showError(input, 'Product name must be less than 100 characters');
-         return false;
-      }
-      
-      if (!nameRegex.test(value)) {
-         showError(input, 'Product name can only contain letters, spaces, hyphens, apostrophes, commas, and periods');
-         return false;
-      }
-      
-      clearError(input);
-      return true;
-   }
-   
-   function validateProductPrice(input) {
-      const value = input.value.trim();
-      const errorElement = input.nextElementSibling;
-      
-      if (value === '') {
-         showError(input, 'Product price is required');
-         return false;
-      }
-      
-      // Check if value contains + or - symbols
-      if (value.includes('+') || value.includes('-')) {
-         showError(input, 'Product price cannot contain + or - symbols');
-         return false;
-      }
-      
-      // Check if it's a valid number (allowing decimal points)
-      if (!/^\d*\.?\d*$/.test(value)) {
-         showError(input, 'Product price must be a valid number');
-         return false;
-      }
-      
-      // Check if it's a finite number
-      if (isNaN(value) || !isFinite(value)) {
-         showError(input, 'Product price must be a valid number');
-         return false;
-      }
-      
-      const price = parseFloat(value);
-      
-      if (price < 1) {
-         showError(input, 'Product price must be at least ₹1');
-         return false;
-      }
-      
-      if (price > 10000000) {
-         showError(input, 'Product price must be less than ₹10,000,000');
-         return false;
-      }
-      
-      // Check decimal places
-      if (value.includes('.')) {
-         const decimalPart = value.split('.')[1];
-         if (decimalPart.length > 2) {
-            showError(input, 'Product price can have at most 2 decimal places');
-            return false;
-         }
-      }
-      
-      clearError(input);
-      return true;
-   }
-   
-   function validateProductDetails(textarea) {
-      const value = textarea.value.trim();
-      const errorElement = textarea.nextElementSibling;
-      
-      if (value === '') {
-         showError(textarea, 'Product details are required');
-         return false;
-      }
-      
-      if (value.length < 10) {
-         showError(textarea, 'Product details must be at least 10 characters long');
-         return false;
-      }
-      
-      if (value.length > 500) {
-         showError(textarea, 'Product details must be less than 500 characters');
-         return false;
-      }
-      
-      clearError(textarea);
-      return true;
-   }
-   
-   function validateImage(input, fieldName) {
-      const file = input.files[0];
-      const label = input.parentElement;
-      const errorElement = label.nextElementSibling;
-      
-      if (!file) {
-         showError(input, 'Image is required', fieldName);
-         return false;
-      }
-      
-      // Check file size (2MB max)
-      if (file.size > 2000000) {
-         showError(input, 'File size is too large (max 2MB)', fieldName);
-         return false;
-      }
-      
-      // Check file type
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-      if (!allowedTypes.includes(file.type)) {
-         showError(input, 'Invalid file type. Only JPG, JPEG, PNG, WEBP allowed', fieldName);
-         return false;
-      }
-      
-      clearError(input, fieldName);
-      return true;
-   }
-   
-   function showError(input, message, fieldName = null) {
-      input.classList.add('error');
-      
-      if (fieldName) {
-         // For file inputs, we need to find the error element differently
-         const label = input.parentElement;
-         let errorElement = label.nextElementSibling;
-         
-         if (errorElement && errorElement.classList.contains('error-message')) {
-            errorElement.textContent = message;
-         } else {
-            errorElement = document.createElement('span');
-            errorElement.className = 'error-message';
-            errorElement.textContent = message;
-            label.parentNode.insertBefore(errorElement, label.nextSibling);
-         }
-         
-         label.classList.add('error');
-      } else {
-         let errorElement = input.nextElementSibling;
-         
-         if (errorElement && errorElement.classList.contains('error-message')) {
-            errorElement.textContent = message;
-         } else {
-            errorElement = document.createElement('span');
-            errorElement.className = 'error-message';
-            errorElement.textContent = message;
-            input.parentNode.insertBefore(errorElement, input.nextSibling);
-         }
-      }
-   }
-   
-   function clearError(input, fieldName = null) {
-      input.classList.remove('error');
-      
-      if (fieldName) {
-         // For file inputs
-         const label = input.parentElement;
-         let errorElement = label.nextElementSibling;
-         
-         if (errorElement && errorElement.classList.contains('error-message')) {
-            errorElement.remove();
-         }
-         
-         label.classList.remove('error');
-      } else {
-         let errorElement = input.nextElementSibling;
-         
-         if (errorElement && errorElement.classList.contains('error-message')) {
-            errorElement.remove();
-         }
-      }
-   }
-   
-   // Form validation before submit
-   document.getElementById('productForm').addEventListener('submit', function(e) {
-      let isValid = true;
-      
-      // Validate product name
-      const nameInput = document.querySelector('input[name="name"]');
-      if (!validateProductName(nameInput)) {
-         isValid = false;
-      }
-      
-      // Validate product price
-      const priceInput = document.querySelector('input[name="price"]');
-      if (!validateProductPrice(priceInput)) {
-         isValid = false;
-      }
-      
-      // Validate product details
-      const detailsTextarea = document.querySelector('textarea[name="details"]');
-      if (!validateProductDetails(detailsTextarea)) {
-         isValid = false;
-      }
-      
-      // Validate images
-      const imageInputs = [
-         document.querySelector('input[name="image_01"]'),
-         document.querySelector('input[name="image_02"]'),
-         document.querySelector('input[name="image_03"]')
-      ];
-      
-      imageInputs.forEach((input, index) => {
-         if (!validateImage(input, `image_0${index + 1}`)) {
-            isValid = false;
-         }
-      });
-      
-      if (!isValid) {
-         e.preventDefault();
-         // Scroll to the first error
-         const firstError = document.querySelector('.error');
-         if (firstError) {
-            firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-         }
-      }
    });
 </script>
-<script src="../js/admin_script.js"></script>
    
 </body>
 </html>
